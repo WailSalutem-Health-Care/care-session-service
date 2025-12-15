@@ -1,0 +1,16 @@
+version: "3.9"
+
+services:
+  care-session-service:
+    build: .
+    container_name: care-session-service
+    env_file:
+      - .env
+    ports:
+      - "8002:8000"
+    networks:
+      - wailsalutem-net
+
+networks:
+  wailsalutem-net:
+    external: true
