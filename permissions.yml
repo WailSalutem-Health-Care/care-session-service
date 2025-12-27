@@ -1,0 +1,27 @@
+roles:
+  SUPER_ADMIN:
+    - organization:create
+    - organization:manage
+    - organization:view
+
+  ORG_ADMIN:
+    - organization:view
+    - user:manage
+    - nfc:assign
+    - care-session:report
+
+  CAREGIVER:
+    - nfc:check-in
+    - nfc:check-out
+    - care-session:create
+    - care-session:update
+    - care-session:read
+
+  PATIENT:
+    - care-session:read
+
+  MUNICIPALITY:
+    - care-session:report
+
+  INSURER:
+    - care-session:report
