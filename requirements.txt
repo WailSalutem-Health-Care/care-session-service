@@ -5,7 +5,7 @@ asyncpg
 pika
 python-dotenv
 pandas
-PyJWT[crypto]
+python-jose[cryptography]
 sqlalchemy[asyncio]
 pydantic-settings
 requests
