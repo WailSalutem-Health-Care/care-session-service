@@ -4,8 +4,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.care_sessions.models import CareSession
 from app.care_sessions.repository import CareSessionRepository
-from app.db.models import NFCTag, Patient
-from fastapi import HTTPException, status
+from app.care_sessions.validators import SessionValidator
+from app.care_sessions.event_publisher import SessionEventPublisher
+from app.care_sessions.exceptions import (
+    CareSessionNotFoundException,
+    DuplicateActiveSessionException,
+)
+from app.db.models import Patient
 
 
 class CareSessionService:
@@ -14,6 +19,15 @@ class CareSessionService:
     def __init__(self, db: AsyncSession, tenant_schema: str):
         self.db = db
         self.repository = CareSessionRepository(db, tenant_schema)
+        self.validator = SessionValidator(db, self.repository)
+        self.event_publisher = SessionEventPublisher(tenant_schema)
+    
+    async def _get_session_or_404(self, session_id: UUID) -> CareSession:
+        """Get session by ID or raise 404"""
+        session = await self.repository.get_by_id(session_id)
+        if not session:
+            raise CareSessionNotFoundException(session_id)
+        return session
     
     async def create_session(
         self,
@@ -29,56 +43,32 @@ class CareSessionService:
         3. Create session record
         """
         # Validate NFC tag
-        await self.repository._set_search_path()
-        stmt = select(NFCTag).where(NFCTag.tag_id == tag_id, NFCTag.status == "active")
-        result = await self.db.execute(stmt)
-        nfc_tag = result.scalar_one_or_none()
-        
-        if not nfc_tag:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"NFC tag '{tag_id}' not found or inactive"
-            )
+        nfc_tag = await self.validator.validate_and_get_nfc_tag(tag_id)
         
         # Check for duplicate active sessions
         existing_session = await self.repository.get_active_by_patient(nfc_tag.patient_id)
-        
         if existing_session:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Active session already exists for this patient"
-            )
+            raise DuplicateActiveSessionException(nfc_tag.patient_id)
         
-        # Create session (no notes on check-in)
+        # Create session
         new_session = CareSession(
             patient_id=nfc_tag.patient_id,
             caregiver_id=caregiver_id,
             status="in_progress",
         )
         
-        return await self.repository.create(new_session)
+        created_session = await self.repository.create(new_session)
+        self.event_publisher.publish_session_created(created_session)
+        
+        return created_session
     
     async def get_session(self, session_id: UUID) -> CareSession:
         """Get a care session by ID"""
-        session = await self.repository.get_by_id(session_id)
-        
-        if not session:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Care session not found"
-            )
-        
-        return session
+        return await self._get_session_or_404(session_id)
     
     async def get_patient_with_session(self, session_id: UUID) -> dict:
         """Get patient details for a care session"""
-        session = await self.repository.get_by_id(session_id)
-        
-        if not session:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Care session not found"
-            )
+        session = await self._get_session_or_404(session_id)
         
         # Get patient
         await self.repository._set_search_path()
@@ -102,29 +92,56 @@ class CareSessionService:
         2. Verify caregiver owns the session
         3. Update with check_out_time, notes, and status
         """
-        session = await self.repository.get_by_id(session_id)
+        session = await self._get_session_or_404(session_id)
         
-        if not session:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Care session not found"
-            )
-        
-        if session.status != "in_progress":
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Cannot complete session with status: {session.status}"
-            )
-        
-        if session.caregiver_id != caregiver_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You can only complete your own sessions"
-            )
+        # Validate business rules
+        self.validator.validate_session_in_progress(session)
+        self.validator.validate_caregiver_ownership(session, caregiver_id)
         
         # Update session
         session.check_out_time = datetime.utcnow()
         session.caregiver_notes = caregiver_notes
         session.status = "completed"
+        
+        updated_session = await self.repository.update(session)
+        self.event_publisher.publish_session_completed(updated_session)
+        
+        return updated_session
+
+
+    async def update_session(
+        self,
+        session_id: UUID,
+        check_in_time: datetime | None = None,
+        check_out_time: datetime | None = None,
+        caregiver_notes: str | None = None,
+        status: str | None = None,
+    ) -> CareSession:
+        """
+        Update a care session (Admins only - for corrections/adjustments).
+        
+        Steps:
+        1. Validate session exists
+        2. Apply partial updates
+        3. Validate business rules
+        """
+        session = await self._get_session_or_404(session_id)
+        
+        # Apply updates
+        if check_in_time is not None:
+            session.check_in_time = check_in_time
+        
+        if check_out_time is not None:
+            session.check_out_time = check_out_time
+        
+        if caregiver_notes is not None:
+            session.caregiver_notes = caregiver_notes
+        
+        if status is not None:
+            self.validator.validate_status(status)
+            session.status = status
+        
+        # Validate session times
+        self.validator.validate_session_times(session)
         
         return await self.repository.update(session)

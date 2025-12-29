@@ -1,5 +1,5 @@
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.postgres import get_db
 from app.care_sessions.service import CareSessionService
@@ -7,13 +7,30 @@ from app.care_sessions.schemas import (
     CreateCareSessionRequest,
     CareSessionResponse,
     CompleteCareSessionRequest,
+    UpdateCareSessionRequest,
 )
+from app.care_sessions.models import CareSession
 from app.auth.middleware import JWTPayload, verify_token, check_permission
 
 router = APIRouter(
     prefix="/care-sessions",
     tags=["care-sessions"],
 )
+
+
+def to_response(session: CareSession) -> CareSessionResponse:
+    """Convert CareSession model to response schema."""
+    return CareSessionResponse(
+        id=session.id,
+        patient_id=session.patient_id,
+        caregiver_id=session.caregiver_id,
+        check_in_time=session.check_in_time,
+        check_out_time=session.check_out_time,
+        status=session.status,
+        caregiver_notes=session.caregiver_notes,
+        created_at=session.created_at,
+        updated_at=session.updated_at,
+    )
 
 
 @router.post("/create", response_model=CareSessionResponse, status_code=status.HTTP_201_CREATED)
@@ -35,23 +52,12 @@ async def create_care_session(
     check_permission(jwt_payload, "care-session:create")
     
     service = CareSessionService(db, jwt_payload.tenant_schema)
-    
     session = await service.create_session(
         tag_id=request.tag_id,
         caregiver_id=jwt_payload.user_id,
     )
     
-    return CareSessionResponse(
-        id=session.id,
-        patient_id=session.patient_id,
-        caregiver_id=session.caregiver_id,
-        check_in_time=session.check_in_time,
-        check_out_time=session.check_out_time,
-        status=session.status,
-        caregiver_notes=session.caregiver_notes,
-        created_at=session.created_at,
-        updated_at=session.updated_at,
-    )
+    return to_response(session)
 
 
 @router.get("/{session_id}", response_model=CareSessionResponse)
@@ -70,17 +76,7 @@ async def get_care_session(
     service = CareSessionService(db, jwt_payload.tenant_schema)
     session = await service.get_session(session_id)
     
-    return CareSessionResponse(
-        id=session.id,
-        patient_id=session.patient_id,
-        caregiver_id=session.caregiver_id,
-        check_in_time=session.check_in_time,
-        check_out_time=session.check_out_time,
-        status=session.status,
-        caregiver_notes=session.caregiver_notes,
-        created_at=session.created_at,
-        updated_at=session.updated_at,
-    )
+    return to_response(session)
 
 
 @router.put("/{session_id}/complete", response_model=CareSessionResponse)
@@ -103,21 +99,44 @@ async def complete_care_session(
     check_permission(jwt_payload, "care-session:update")
     
     service = CareSessionService(db, jwt_payload.tenant_schema)
-    
     session = await service.complete_session(
         session_id=session_id,
         caregiver_notes=request.caregiver_notes,
         caregiver_id=jwt_payload.user_id,
     )
     
-    return CareSessionResponse(
-        id=session.id,
-        patient_id=session.patient_id,
-        caregiver_id=session.caregiver_id,
-        check_in_time=session.check_in_time,
-        check_out_time=session.check_out_time,
-        status=session.status,
-        caregiver_notes=session.caregiver_notes,
-        created_at=session.created_at,
-        updated_at=session.updated_at,
+    return to_response(session)
+
+
+@router.patch("/{session_id}", response_model=CareSessionResponse)
+async def update_care_session(
+    session_id: UUID,
+    request: UpdateCareSessionRequest,
+    db: AsyncSession = Depends(get_db),
+    jwt_payload: JWTPayload = Depends(verify_token),
+):
+    """
+    Update a care session (Admins only).
+    
+    Allows admins to correct or adjust session data:
+    - Update check-in time
+    - Update check-out time
+    - Update caregiver notes
+    - Change session status
+    
+    All fields are optional - only provided fields will be updated.
+    
+    Required permission: care-session:admin (ORG_ADMIN, SUPER_ADMIN roles)
+    """
+    check_permission(jwt_payload, "care-session:admin")
+    
+    service = CareSessionService(db, jwt_payload.tenant_schema)
+    session = await service.update_session(
+        session_id=session_id,
+        check_in_time=request.check_in_time,
+        check_out_time=request.check_out_time,
+        caregiver_notes=request.caregiver_notes,
+        status=request.status,
     )
+    
+    return to_response(session)
