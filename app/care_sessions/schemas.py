@@ -6,7 +6,6 @@ from pydantic import BaseModel
 class CreateCareSessionRequest(BaseModel):
     """Request to create a new care session"""
     tag_id: str 
-    caregiver_notes: str 
 
 
 class CareSessionResponse(BaseModel):
