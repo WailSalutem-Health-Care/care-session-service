@@ -7,7 +7,7 @@ from app.care_sessions.schemas import (
     CreateCareSessionRequest,
     CareSessionResponse,
 )
-from app.auth.middleware import JWTPayload, verify_token
+from app.auth.middleware import JWTPayload, verify_token, check_permission
 
 router = APIRouter(
     prefix="/care-sessions",
@@ -31,20 +31,13 @@ async def create_care_session(
     
     Required permission: care-session:create (CAREGIVER role)
     """
-    # Check permission
-    if "care-session:create" not in jwt_payload.permissions:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Insufficient permissions to create care session"
-        )
+    check_permission(jwt_payload, "care-session:create")
     
-    # Create service and execute
     service = CareSessionService(db, jwt_payload.tenant_schema)
     
     session = await service.create_session(
         tag_id=request.tag_id,
         caregiver_id=jwt_payload.user_id,
-        caregiver_notes=request.caregiver_notes,
     )
     
     return CareSessionResponse(
@@ -71,12 +64,7 @@ async def get_care_session(
     
     Required permission: care-session:read (CAREGIVER, PATIENT roles)
     """
-    # Check permission
-    if "care-session:read" not in jwt_payload.permissions:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Insufficient permissions to view care session"
-        )
+    check_permission(jwt_payload, "care-session:read")
     
     service = CareSessionService(db, jwt_payload.tenant_schema)
     session = await service.get_session(session_id)
