@@ -1,4 +1,5 @@
 from uuid import UUID
+from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.care_sessions.models import CareSession
@@ -87,3 +88,43 @@ class CareSessionService:
         
         return {"session": session, "patient": patient}
 
+    async def complete_session(
+        self,
+        session_id: UUID,
+        caregiver_notes: str,
+        caregiver_id: UUID,
+    ) -> CareSession:
+        """
+        Complete a care session (check-out).
+        
+        Steps:
+        1. Validate session exists and is in progress
+        2. Verify caregiver owns the session
+        3. Update with check_out_time, notes, and status
+        """
+        session = await self.repository.get_by_id(session_id)
+        
+        if not session:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Care session not found"
+            )
+        
+        if session.status != "in_progress":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Cannot complete session with status: {session.status}"
+            )
+        
+        if session.caregiver_id != caregiver_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You can only complete your own sessions"
+            )
+        
+        # Update session
+        session.check_out_time = datetime.utcnow()
+        session.caregiver_notes = caregiver_notes
+        session.status = "completed"
+        
+        return await self.repository.update(session)

@@ -6,6 +6,7 @@ from app.care_sessions.service import CareSessionService
 from app.care_sessions.schemas import (
     CreateCareSessionRequest,
     CareSessionResponse,
+    CompleteCareSessionRequest,
 )
 from app.auth.middleware import JWTPayload, verify_token, check_permission
 
@@ -81,3 +82,42 @@ async def get_care_session(
         updated_at=session.updated_at,
     )
 
+
+@router.put("/{session_id}/complete", response_model=CareSessionResponse)
+async def complete_care_session(
+    session_id: UUID,
+    request: CompleteCareSessionRequest,
+    db: AsyncSession = Depends(get_db),
+    jwt_payload: JWTPayload = Depends(verify_token),
+):
+    """
+    Complete a care session (check-out) and add caregiver notes.
+    
+    Workflow:
+    1. Validates session exists and is in progress
+    2. Verifies caregiver owns the session
+    3. Sets check_out_time, adds notes, marks as completed
+    
+    Required permission: care-session:update (CAREGIVER role)
+    """
+    check_permission(jwt_payload, "care-session:update")
+    
+    service = CareSessionService(db, jwt_payload.tenant_schema)
+    
+    session = await service.complete_session(
+        session_id=session_id,
+        caregiver_notes=request.caregiver_notes,
+        caregiver_id=jwt_payload.user_id,
+    )
+    
+    return CareSessionResponse(
+        id=session.id,
+        patient_id=session.patient_id,
+        caregiver_id=session.caregiver_id,
+        check_in_time=session.check_in_time,
+        check_out_time=session.check_out_time,
+        status=session.status,
+        caregiver_notes=session.caregiver_notes,
+        created_at=session.created_at,
+        updated_at=session.updated_at,
+    )

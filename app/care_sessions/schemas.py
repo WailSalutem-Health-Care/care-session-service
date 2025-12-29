@@ -8,6 +8,11 @@ class CreateCareSessionRequest(BaseModel):
     tag_id: str 
 
 
+class CompleteCareSessionRequest(BaseModel):
+    """Request to complete/check-out a care session"""
+    caregiver_notes: str
+
+
 class CareSessionResponse(BaseModel):
     """Care session response"""
     id: UUID
