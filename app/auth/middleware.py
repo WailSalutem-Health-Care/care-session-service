@@ -1,62 +1,29 @@
-from typing import Optional
-from uuid import UUID
-from pydantic import BaseModel, Field
+"""Authentication Middleware"""
+import os
+from jose import JWTError
 from fastapi import HTTPException, status, Depends
 from fastapi.security import HTTPBearer
-from datetime import datetime
-import jwt
-from jwt import PyJWKClient
-from app.config import settings
-import yaml
-from pathlib import Path
+
+from app.auth.models import JWTPayload
+from app.auth.jwt_verifier import JWTVerifier
+from app.auth.permissions_manager import PermissionsManager
 
 
+# Initialize components
 security = HTTPBearer()
-
-
-class JWTPayload(BaseModel):
-    """JWT token payload"""
-    user_id: UUID = Field(..., alias="sub")
-    org_id: str  # organizationId from Keycloak
-    tenant_schema: str
-    roles: list[str] = []
-    permissions: list[str] = []
-    iat: Optional[datetime] = None
-    exp: Optional[datetime] = None
-    
-    class Config:
-        populate_by_name = True
-
-
-# Load permissions from permissions.yml
-def load_permissions():
-    """Load role-to-permissions mapping from permissions.yml"""
-    permissions_file = Path(__file__).parent.parent.parent / "permissions.yml"
-    try:
-        with open(permissions_file, 'r') as f:
-            data = yaml.safe_load(f)
-            return data.get('roles', {})
-    except Exception:
-        return {}
-
-
-ROLE_PERMISSIONS = load_permissions()
-
-
-def get_permissions_from_roles(roles: list[str]) -> list[str]:
-    """Convert roles to permissions using permissions.yml"""
-    permissions = set()
-    for role in roles:
-        role_perms = ROLE_PERMISSIONS.get(role, [])
-        permissions.update(role_perms)
-    return list(permissions)
+jwt_verifier = JWTVerifier(
+    keycloak_url=os.getenv("KEYCLOAK_URL"),
+    realm=os.getenv("KEYCLOAK_REALM"),
+    algorithm=os.getenv("JWT_ALGORITHM")
+)
+permissions_manager = PermissionsManager()
 
 
 async def verify_token(credentials = Depends(security)) -> JWTPayload:
     """
-    Verify JWT token from Keycloak using JWKS.
+    Verify JWT token from Keycloak and extract payload.
     
-    Expected JWT claims from Keycloak:
+    Expected JWT claims:
     - sub: user_id
     - organisationId: organization ID
     - realm_access.roles: list of role names
@@ -64,28 +31,15 @@ async def verify_token(credentials = Depends(security)) -> JWTPayload:
     token = credentials.credentials
     
     try:
-        # Use Keycloak's JWKS endpoint for token verification
-        jwks_url = "https://keycloak-wailsalutem-suite.apps.inholland-minor.openshift.eu/realms/wailsalutem/protocol/openid-connect/certs"
-        jwks_client = PyJWKClient(jwks_url)
-        
-        # Get signing key from token
-        signing_key = jwks_client.get_signing_key_from_jwt(token)
-        
         # Verify and decode token
-        payload = jwt.decode(
-            token,
-            signing_key.key,
-            algorithms=["RS256"],
-            audience="account",
-            options={"verify_exp": True}
-        )
+        payload = jwt_verifier.verify_and_decode(token)
         
         # Extract roles from realm_access
         roles = []
         if "realm_access" in payload and "roles" in payload["realm_access"]:
             roles = payload["realm_access"]["roles"]
         
-        # Get organizationId (Keycloak uses this field)
+        # Get organizationId
         org_id = payload.get("organisationId", "")
         if not org_id:
             raise HTTPException(
@@ -93,10 +47,10 @@ async def verify_token(credentials = Depends(security)) -> JWTPayload:
                 detail="Invalid token: missing organisationId"
             )
         
-        # Map roles to permissions using permissions.yml
-        permissions = get_permissions_from_roles(roles)
+        # Map roles to permissions
+        permissions = permissions_manager.get_permissions_for_roles(roles)
         
-        # Build tenant schema from org_id (format: org_<id>)
+        # Build tenant schema
         tenant_schema = org_id if org_id.startswith("org_") else f"org_{org_id}"
         
         return JWTPayload(
@@ -109,12 +63,7 @@ async def verify_token(credentials = Depends(security)) -> JWTPayload:
             exp=payload.get("exp")
         )
     
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token expired"
-        )
-    except jwt.InvalidTokenError as e:
+    except JWTError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Invalid token: {str(e)}"
@@ -123,4 +72,22 @@ async def verify_token(credentials = Depends(security)) -> JWTPayload:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Token verification failed: {str(e)}"
+        )
+
+
+def check_permission(jwt_payload: JWTPayload, required_permission: str):
+    """
+    Check if user has required permission.
+    
+    Args:
+        jwt_payload: JWT payload containing user permissions
+        required_permission: Permission string to check
+        
+    Raises:
+        HTTPException: If user lacks required permission
+    """
+    if required_permission not in jwt_payload.permissions:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Missing required permission: {required_permission}"
         )
