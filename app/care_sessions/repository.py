@@ -15,8 +15,8 @@ class CareSessionRepository:
         self.tenant_schema = tenant_schema
     
     async def _set_search_path(self):
-        """Set PostgreSQL search_path to tenant schema"""
-        await self.db.execute(text(f"SET search_path TO {self.tenant_schema}"))
+        """Set PostgreSQL search_path to tenant schema, with public fallback"""
+        await self.db.execute(text(f"SET search_path TO {self.tenant_schema}, public"))
     
     async def create(self, session: CareSession) -> CareSession:
         """Create a new care session"""
@@ -80,3 +80,25 @@ class CareSessionRepository:
             await self.db.commit()
             return True
         return False
+    
+    async def get_sessions_in_period(self, start_date: datetime, end_date: datetime, limit: int = 100, offset: int = 0) -> List[CareSession]:
+        """Get care sessions within a date range"""
+        await self._set_search_path()
+        stmt = select(CareSession).where(
+            and_(
+                CareSession.check_in_time >= start_date,
+                CareSession.check_in_time <= end_date,
+                CareSession.deleted_at.is_(None)
+            )
+        ).order_by(CareSession.check_in_time.desc()).limit(limit).offset(offset)
+        result = await self.db.execute(stmt)
+        return result.scalars().all()
+    
+    async def get_all_sessions(self, limit: int = 100, offset: int = 0) -> List[CareSession]:
+        """Get all care sessions"""
+        await self._set_search_path()
+        stmt = select(CareSession).where(
+            CareSession.deleted_at.is_(None)
+        ).order_by(CareSession.created_at.desc()).limit(limit).offset(offset)
+        result = await self.db.execute(stmt)
+        return result.scalars().all()

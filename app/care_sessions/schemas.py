@@ -13,6 +13,14 @@ class CompleteCareSessionRequest(BaseModel):
     caregiver_notes: str
 
 
+class UpdateCareSessionRequest(BaseModel):
+    """Request to update a care session (admin only)"""
+    check_in_time: datetime | None = None
+    check_out_time: datetime | None = None
+    caregiver_notes: str | None = None
+    status: str | None = None
+
+
 class CareSessionResponse(BaseModel):
     """Care session response"""
     id: UUID
@@ -23,6 +31,6 @@ class CareSessionResponse(BaseModel):
     status: str  # in_progress | completed | cancelled
     caregiver_notes: str | None = None
     created_at: datetime
-    updated_at: datetime
+    updated_at: datetime | None = None
 
 

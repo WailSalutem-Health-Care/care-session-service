@@ -5,7 +5,6 @@ from sqlalchemy import select
 from app.care_sessions.models import CareSession
 from app.care_sessions.repository import CareSessionRepository
 from app.care_sessions.validators import SessionValidator
-from app.care_sessions.event_publisher import SessionEventPublisher
 from app.care_sessions.exceptions import (
     CareSessionNotFoundException,
     DuplicateActiveSessionException,
@@ -20,7 +19,6 @@ class CareSessionService:
         self.db = db
         self.repository = CareSessionRepository(db, tenant_schema)
         self.validator = SessionValidator(db, self.repository)
-        self.event_publisher = SessionEventPublisher(tenant_schema)
     
     async def _get_session_or_404(self, session_id: UUID) -> CareSession:
         """Get session by ID or raise 404"""
@@ -58,8 +56,6 @@ class CareSessionService:
         )
         
         created_session = await self.repository.create(new_session)
-        self.event_publisher.publish_session_created(created_session)
-        
         return created_session
     
     async def get_session(self, session_id: UUID) -> CareSession:
@@ -104,8 +100,6 @@ class CareSessionService:
         session.status = "completed"
         
         updated_session = await self.repository.update(session)
-        self.event_publisher.publish_session_completed(updated_session)
-        
         return updated_session
 
 
