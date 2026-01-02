@@ -1,7 +1,8 @@
-from fastapi import FastAPI
-from app.care_sessions.router import router as care_sessions_router
 from dotenv import load_dotenv
 load_dotenv()
+
+from fastapi import FastAPI
+from app.care_sessions.router import router as care_sessions_router
 
 app = FastAPI()
 
