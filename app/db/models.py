@@ -4,23 +4,6 @@ from sqlalchemy import Column, String, DateTime, Text, Boolean, Date
 from sqlalchemy.dialects.postgresql import UUID
 from app.db.postgres import Base
 
-class CareSession(Base):
-    """
-    Care session tracking for caregiver check-ins/check-outs.
-    Owned by care-session-service.
-    """
-    __tablename__ = "care_sessions"
-    
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    patient_id = Column(UUID(as_uuid=True), nullable=False, index=True)
-    caregiver_id = Column(UUID(as_uuid=True), nullable=False, index=True)
-    check_in_time = Column(DateTime, default=datetime.utcnow, nullable=False)
-    check_out_time = Column(DateTime, nullable=True)
-    status = Column(String(50), default="in_progress", nullable=False, index=True)  # in_progress | completed | cancelled
-    caregiver_notes = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
-    deleted_at = Column(DateTime, nullable=True)
 
 class NFCTag(Base):
     """
@@ -32,7 +15,7 @@ class NFCTag(Base):
     id = Column(UUID(as_uuid=True), primary_key=True)
     tag_id = Column(String(255), unique=True, nullable=False, index=True)
     patient_id = Column(UUID(as_uuid=True), nullable=False, index=True)
-    status = Column(String(50), nullable=False)  # active | inactive | replaced
+    status = Column(String(50), nullable=False)
     issued_at = Column(DateTime, nullable=False)
     deactivated_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, nullable=False)
