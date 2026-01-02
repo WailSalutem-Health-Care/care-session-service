@@ -1,9 +1,9 @@
 """Care Session Repository Layer"""
 from uuid import UUID
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, text
+from sqlalchemy import select, and_, text, func
 from app.care_sessions.models import CareSession
 
 
@@ -16,7 +16,7 @@ class CareSessionRepository:
     
     async def _set_search_path(self):
         """Set PostgreSQL search_path to tenant schema"""
-        await self.db.execute(text(f"SET search_path TO {self.tenant_schema}"))
+        await self.db.execute(text(f'SET search_path TO "{self.tenant_schema}"'))
     
     async def create(self, session: CareSession) -> CareSession:
         """Create a new care session"""
@@ -80,3 +80,45 @@ class CareSessionRepository:
             await self.db.commit()
             return True
         return False
+    
+    async def list_sessions(
+        self,
+        caregiver_id: Optional[UUID] = None,
+        patient_id: Optional[UUID] = None,
+        status: Optional[str] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> Tuple[List[CareSession], int]:
+        """List care sessions with filters and pagination."""
+        await self._set_search_path()
+        
+        conditions = []
+        if caregiver_id:
+            conditions.append(CareSession.caregiver_id == caregiver_id)
+        if patient_id:
+            conditions.append(CareSession.patient_id == patient_id)
+        if status:
+            conditions.append(CareSession.status == status)
+        if start_date:
+            conditions.append(CareSession.check_in_time >= start_date)
+        if end_date:
+            conditions.append(CareSession.check_in_time <= end_date)
+        
+        base_query = select(CareSession)
+        if conditions:
+            base_query = base_query.where(and_(*conditions))
+        
+        count_result = await self.db.execute(
+            select(func.count()).select_from(base_query.subquery())
+        )
+        total = count_result.scalar()
+        
+        offset = (page - 1) * page_size
+        stmt = base_query.order_by(CareSession.check_in_time.desc()).offset(offset).limit(page_size)
+        
+        result = await self.db.execute(stmt)
+        sessions = result.scalars().all()
+        
+        return sessions, total

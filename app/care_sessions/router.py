@@ -1,11 +1,14 @@
 from uuid import UUID
-from fastapi import APIRouter, Depends, status
+from datetime import datetime
+from typing import Optional
+from fastapi import APIRouter, Depends, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.postgres import get_db
 from app.care_sessions.service import CareSessionService
 from app.care_sessions.schemas import (
     CreateCareSessionRequest,
     CareSessionResponse,
+    CareSessionListResponse,
     CompleteCareSessionRequest,
     UpdateCareSessionRequest,
 )
@@ -106,6 +109,43 @@ async def complete_care_session(
     )
     
     return to_response(session)
+
+
+@router.get("/", response_model=CareSessionListResponse)
+async def list_care_sessions(
+    caregiver_id: Optional[UUID] = Query(None),
+    patient_id: Optional[UUID] = Query(None),
+    status: Optional[str] = Query(None),
+    start_date: Optional[datetime] = Query(None),
+    end_date: Optional[datetime] = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+    jwt_payload: JWTPayload = Depends(verify_token),
+):
+    """List care sessions with optional filters and pagination."""
+    check_permission(jwt_payload, "care-session:read")
+    
+    service = CareSessionService(db, jwt_payload.tenant_schema)
+    sessions, total = await service.list_sessions(
+        caregiver_id=caregiver_id,
+        patient_id=patient_id,
+        status=status,
+        start_date=start_date,
+        end_date=end_date,
+        page=page,
+        page_size=page_size,
+    )
+    
+    total_pages = (total + page_size - 1) // page_size
+    
+    return CareSessionListResponse(
+        sessions=[to_response(session) for session in sessions],
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=total_pages,
+    )
 
 
 @router.patch("/{session_id}", response_model=CareSessionResponse)
