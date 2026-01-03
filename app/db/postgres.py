@@ -1,11 +1,7 @@
 """PostgreSQL Database Configuration"""
 import os
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import NullPool
-from typing import AsyncGenerator
-
-from app.db.base import Base
+from sqlalchemy.ext.declarative import declarative_base
 
 # Database URL
 DATABASE_URL = f"postgresql+asyncpg://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}"

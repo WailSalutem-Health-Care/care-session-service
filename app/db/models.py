@@ -2,7 +2,7 @@ from datetime import datetime
 from uuid import uuid4
 from sqlalchemy import Column, String, DateTime, Text, Boolean, Date
 from sqlalchemy.dialects.postgresql import UUID
-from app.db.base import Base
+from app.db.postgres import Base
 
 class CareSession(Base):
     """
