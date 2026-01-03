@@ -3,7 +3,7 @@ from uuid import UUID
 from datetime import datetime
 from typing import Optional, List, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, text, func
+from sqlalchemy import select, and_, or_, text, func
 from app.care_sessions.models import CareSession
 
 
@@ -81,7 +81,15 @@ class CareSessionRepository:
             return True
         return False
     
-    async def get_sessions_in_period(self, start_date: datetime, end_date: datetime, limit: int = 100, offset: int = 0) -> List[CareSession]:
+    async def get_sessions_in_period(
+        self,
+        start_date: datetime,
+        end_date: datetime,
+        limit: int | None = 100,
+        offset: int | None = 0,
+        cursor_time: datetime | None = None,
+        cursor_id: UUID | None = None,
+    ) -> List[CareSession]:
         """Get care sessions within a date range"""
         await self._set_search_path()
         stmt = select(CareSession).where(
@@ -90,16 +98,52 @@ class CareSessionRepository:
                 CareSession.check_in_time <= end_date,
                 CareSession.deleted_at.is_(None)
             )
-        ).order_by(CareSession.check_in_time.desc()).limit(limit).offset(offset)
+        )
+        if cursor_time is not None and cursor_id is not None:
+            stmt = stmt.where(
+                or_(
+                    CareSession.check_in_time < cursor_time,
+                    and_(
+                        CareSession.check_in_time == cursor_time,
+                        CareSession.id < cursor_id,
+                    ),
+                )
+            )
+        stmt = stmt.order_by(CareSession.check_in_time.desc(), CareSession.id.desc())
+        if limit is not None:
+            stmt = stmt.limit(limit)
+        if offset is not None:
+            stmt = stmt.offset(offset)
         result = await self.db.execute(stmt)
         return result.scalars().all()
     
-    async def get_all_sessions(self, limit: int = 100, offset: int = 0) -> List[CareSession]:
+    async def get_all_sessions(
+        self,
+        limit: int | None = 100,
+        offset: int | None = 0,
+        cursor_time: datetime | None = None,
+        cursor_id: UUID | None = None,
+    ) -> List[CareSession]:
         """Get all care sessions"""
         await self._set_search_path()
         stmt = select(CareSession).where(
             CareSession.deleted_at.is_(None)
-        ).order_by(CareSession.created_at.desc()).limit(limit).offset(offset)
+        )
+        if cursor_time is not None and cursor_id is not None:
+            stmt = stmt.where(
+                or_(
+                    CareSession.created_at < cursor_time,
+                    and_(
+                        CareSession.created_at == cursor_time,
+                        CareSession.id < cursor_id,
+                    ),
+                )
+            )
+        stmt = stmt.order_by(CareSession.created_at.desc(), CareSession.id.desc())
+        if limit is not None:
+            stmt = stmt.limit(limit)
+        if offset is not None:
+            stmt = stmt.offset(offset)
         result = await self.db.execute(stmt)
         return result.scalars().all()
     async def list_sessions(

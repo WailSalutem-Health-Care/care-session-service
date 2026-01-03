@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional, Tuple
 from uuid import UUID
 from datetime import datetime
 import pandas as pd
@@ -31,6 +31,17 @@ class ReportsService:
     def __init__(self, repository: CareSessionRepository):
         self.repository = repository
 
+    def _parse_cursor(self, cursor: str) -> Tuple[datetime, UUID]:
+        parts = cursor.split("|", 1)
+        if len(parts) != 2:
+            raise ValueError("Invalid cursor")
+        cursor_time = datetime.fromisoformat(parts[0])
+        cursor_id = UUID(parts[1])
+        return cursor_time, cursor_id
+
+    def _build_cursor(self, cursor_time: datetime, cursor_id: UUID) -> str:
+        return f"{cursor_time.isoformat()}|{cursor_id}"
+
     async def get_individual_session_report(self, session_id: UUID) -> CareSessionResponse:
         """Get report for a single care session"""
         session = await self.repository.get_by_id(session_id)
@@ -38,15 +49,57 @@ class ReportsService:
             raise CareSessionNotFoundException(str(session_id))
         return to_response(session)
 
-    async def get_period_session_report(self, start_date: datetime, end_date: datetime, limit: int = 100, offset: int = 0) -> List[CareSessionResponse]:
+    async def get_period_session_report(
+        self,
+        start_date: datetime,
+        end_date: datetime,
+        limit: int | None = 100,
+        cursor: Optional[str] = None,
+    ) -> Tuple[List[CareSessionResponse], Optional[str]]:
         """Get reports for care sessions in a specific period"""
-        sessions = await self.repository.get_sessions_in_period(start_date, end_date, limit, offset)
-        return [to_response(s) for s in sessions]
+        cursor_time = None
+        cursor_id = None
+        if cursor:
+            cursor_time, cursor_id = self._parse_cursor(cursor)
+        fetch_limit = limit + 1 if limit is not None else None
+        sessions = await self.repository.get_sessions_in_period(
+            start_date,
+            end_date,
+            fetch_limit,
+            None,
+            cursor_time,
+            cursor_id,
+        )
+        next_cursor = None
+        if limit is not None and len(sessions) > limit:
+            last = sessions[limit - 1]
+            next_cursor = self._build_cursor(last.check_in_time, last.id)
+            sessions = sessions[:limit]
+        return [to_response(s) for s in sessions], next_cursor
 
-    async def get_all_time_session_report(self, limit: int = 100, offset: int = 0) -> List[CareSessionResponse]:
+    async def get_all_time_session_report(
+        self,
+        limit: int | None = 100,
+        cursor: Optional[str] = None,
+    ) -> Tuple[List[CareSessionResponse], Optional[str]]:
         """Get reports for all care sessions"""
-        sessions = await self.repository.get_all_sessions(limit, offset)
-        return [to_response(s) for s in sessions]
+        cursor_time = None
+        cursor_id = None
+        if cursor:
+            cursor_time, cursor_id = self._parse_cursor(cursor)
+        fetch_limit = limit + 1 if limit is not None else None
+        sessions = await self.repository.get_all_sessions(
+            fetch_limit,
+            None,
+            cursor_time,
+            cursor_id,
+        )
+        next_cursor = None
+        if limit is not None and len(sessions) > limit:
+            last = sessions[limit - 1]
+            next_cursor = self._build_cursor(last.created_at, last.id)
+            sessions = sessions[:limit]
+        return [to_response(s) for s in sessions], next_cursor
 
     def generate_csv(self, sessions: List[CareSessionResponse]) -> BytesIO:
         """Generate CSV file from session data"""

@@ -1,11 +1,11 @@
 from uuid import UUID
-from typing import List
 from datetime import datetime
 from fastapi import APIRouter, Depends, Query, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.postgres import get_db
 from app.reports.service import ReportsService
+from app.reports.schemas import CareSessionReportPage
 from app.care_sessions.repository import CareSessionRepository
 from app.care_sessions.schemas import CareSessionResponse
 from app.auth.middleware import JWTPayload, verify_token, check_permission
@@ -23,30 +23,38 @@ router = APIRouter(
 )
 
 
-@router.get("/sessions/period", response_model=List[CareSessionResponse])
+@router.get("/sessions/period", response_model=CareSessionReportPage)
 async def get_period_session_report(
     start_date: datetime = Query(...),
     end_date: datetime = Query(...),
     limit: int = Query(100, ge=1, le=1000),
-    offset: int = Query(0, ge=0),
+    cursor: str | None = Query(None),
     service: ReportsService = Depends(get_reports_service),
     jwt_payload: JWTPayload = Depends(verify_token),
 ):
     """Get reports for care sessions in a specific time period"""
     check_permission(jwt_payload, "care-session:report")
-    return await service.get_period_session_report(start_date, end_date, limit, offset)
+    try:
+        items, next_cursor = await service.get_period_session_report(start_date, end_date, limit, cursor)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid cursor")
+    return CareSessionReportPage(items=items, next_cursor=next_cursor)
 
 
-@router.get("/sessions/all", response_model=List[CareSessionResponse])
+@router.get("/sessions/all", response_model=CareSessionReportPage)
 async def get_all_time_session_report(
     limit: int = Query(100, ge=1, le=1000),
-    offset: int = Query(0, ge=0),
+    cursor: str | None = Query(None),
     service: ReportsService = Depends(get_reports_service),
     jwt_payload: JWTPayload = Depends(verify_token),
 ):
     """Get reports for all care sessions"""
     check_permission(jwt_payload, "care-session:report")
-    return await service.get_all_time_session_report(limit, offset)
+    try:
+        items, next_cursor = await service.get_all_time_session_report(limit, cursor)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid cursor")
+    return CareSessionReportPage(items=items, next_cursor=next_cursor)
 
 
 @router.get("/sessions/period/download")
@@ -54,14 +62,12 @@ async def download_period_session_report(
     start_date: datetime = Query(...),
     end_date: datetime = Query(...),
     format: str = Query("json", enum=["json", "csv", "pdf"]),
-    limit: int = Query(100, ge=1, le=1000),
-    offset: int = Query(0, ge=0),
     service: ReportsService = Depends(get_reports_service),
     jwt_payload: JWTPayload = Depends(verify_token),
 ):
     """Download reports for care sessions in a specific time period"""
     check_permission(jwt_payload, "care-session:report")
-    sessions = await service.get_period_session_report(start_date, end_date, limit, offset)
+    sessions, _ = await service.get_period_session_report(start_date, end_date, None, None)
 
     if format == "csv":
         csv_buffer = service.generate_csv(sessions)
@@ -76,14 +82,12 @@ async def download_period_session_report(
 @router.get("/sessions/all/download")
 async def download_all_time_session_report(
     format: str = Query("json", enum=["json", "csv", "pdf"]),
-    limit: int = Query(100, ge=1, le=1000),
-    offset: int = Query(0, ge=0),
     service: ReportsService = Depends(get_reports_service),
     jwt_payload: JWTPayload = Depends(verify_token),
 ):
     """Download reports for all care sessions"""
     check_permission(jwt_payload, "care-session:report")
-    sessions = await service.get_all_time_session_report(limit, offset)
+    sessions, _ = await service.get_all_time_session_report(None, None)
 
     if format == "csv":
         csv_buffer = service.generate_csv(sessions)
