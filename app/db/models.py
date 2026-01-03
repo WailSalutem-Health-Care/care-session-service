@@ -2,7 +2,7 @@ from datetime import datetime
 from uuid import uuid4
 from sqlalchemy import Column, String, DateTime, Text, Boolean, Date
 from sqlalchemy.dialects.postgresql import UUID
-from app.db.postgres import Base
+from app.db.base import Base
 
 class CareSession(Base):
     """
@@ -10,6 +10,7 @@ class CareSession(Base):
     Owned by care-session-service.
     """
     __tablename__ = "care_sessions"
+    __table_args__ = {'extend_existing': True}
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     patient_id = Column(UUID(as_uuid=True), nullable=False, index=True)
@@ -28,6 +29,7 @@ class NFCTag(Base):
     Defined here for read-only queries (validation during check-in).
     """
     __tablename__ = "nfc_tags"
+    __table_args__ = {'extend_existing': True}
     
     id = Column(UUID(as_uuid=True), primary_key=True)
     tag_id = Column(String(255), unique=True, nullable=False, index=True)
@@ -45,6 +47,7 @@ class Patient(Base):
     Defined here for read-only queries (getting patient details).
     """
     __tablename__ = "patients"
+    __table_args__ = {'extend_existing': True}
     
     id = Column(UUID(as_uuid=True), primary_key=True)
     full_name = Column(String(255), nullable=False)
