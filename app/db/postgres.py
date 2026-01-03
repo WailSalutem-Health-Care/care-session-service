@@ -1,6 +1,6 @@
 """PostgreSQL Database Configuration"""
 import os
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool
 from typing import AsyncGenerator
@@ -13,21 +13,22 @@ DATABASE_URL = f"postgresql+asyncpg://{os.getenv('DB_USER')}:{os.getenv('DB_PASS
 # Create async engine
 engine = create_async_engine(
     DATABASE_URL,
-    echo=True,  # Set to False in production
-    poolclass=NullPool,
+    echo=os.getenv("APP_ENV") == "development",
+    future=True,
 )
 
 # Create async session factory
-async_session = sessionmaker(
-    bind=engine,
+AsyncSessionLocal = async_sessionmaker(
+    engine,
     class_=AsyncSession,
     expire_on_commit=False,
 )
 
-async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    """Dependency to get database session."""
-    async with async_session() as session:
-        try:
-            yield session
-        finally:
-            await session.close()
+# Base class for models
+Base = declarative_base()
+
+
+async def get_db():
+    """Dependency for getting database session"""
+    async with AsyncSessionLocal() as session:
+        yield session

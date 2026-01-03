@@ -1,5 +1,6 @@
 from uuid import UUID
 from datetime import datetime
+from typing import Optional, Tuple, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.care_sessions.models import CareSession
@@ -139,3 +140,42 @@ class CareSessionService:
         self.validator.validate_session_times(session)
         
         return await self.repository.update(session)
+    
+    async def list_sessions(
+        self,
+        caregiver_id: Optional[UUID] = None,
+        patient_id: Optional[UUID] = None,
+        status: Optional[str] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> Tuple[List[CareSession], int]:
+        """
+        List care sessions with filters and pagination.
+        
+        Args:
+            caregiver_id: Filter by caregiver
+            patient_id: Filter by patient
+            status: Filter by status (in_progress, completed)
+            start_date: Filter sessions from this date (check_in_time)
+            end_date: Filter sessions until this date (check_in_time)
+            page: Page number (1-indexed)
+            page_size: Number of results per page
+        
+        Returns:
+            Tuple of (sessions, total_count)
+        """
+        # Validate status if provided
+        if status:
+            self.validator.validate_status(status)
+        
+        return await self.repository.list_sessions(
+            caregiver_id=caregiver_id,
+            patient_id=patient_id,
+            status=status,
+            start_date=start_date,
+            end_date=end_date,
+            page=page,
+            page_size=page_size,
+        )

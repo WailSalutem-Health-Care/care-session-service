@@ -34,7 +34,7 @@ class NFCTag(Base):
     id = Column(UUID(as_uuid=True), primary_key=True)
     tag_id = Column(String(255), unique=True, nullable=False, index=True)
     patient_id = Column(UUID(as_uuid=True), nullable=False, index=True)
-    status = Column(String(50), nullable=False)  # active | inactive | replaced
+    status = Column(String(50), nullable=False)
     issued_at = Column(DateTime, nullable=False)
     deactivated_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, nullable=False)

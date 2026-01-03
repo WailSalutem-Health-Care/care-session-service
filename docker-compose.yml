@@ -8,3 +8,31 @@ services:
       - .env
     ports:
       - "8002:8000"
+    depends_on:
+      - rabbitmq
+    network_mode: bridge
+
+  care-session-consumer:
+    build: .
+    container_name: care-session-consumer
+    env_file:
+      - .env
+    command: ["python", "start_consumer.py"]
+    depends_on:
+      - rabbitmq
+    volumes:
+      - ./app:/app/app
+      - ./start_consumer.py:/app/start_consumer.py
+    network_mode: bridge
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+    network_mode: bridge

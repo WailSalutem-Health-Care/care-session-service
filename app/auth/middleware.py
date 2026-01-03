@@ -25,7 +25,7 @@ async def verify_token(credentials = Depends(security)) -> JWTPayload:
     
     Expected JWT claims:
     - sub: user_id
-    - organisationId: organization ID
+    - organizationID: organizationID
     - realm_access.roles: list of role names
     """
     token = credentials.credentials
@@ -39,21 +39,22 @@ async def verify_token(credentials = Depends(security)) -> JWTPayload:
         if "realm_access" in payload and "roles" in payload["realm_access"]:
             roles = payload["realm_access"]["roles"]
         
-        # Get org schema name (preferred) and organizationId (fallback)
-        tenant_schema = payload.get("orgSchemaName", "")
-        org_id = payload.get("organisationId", "")
-        if not tenant_schema and not org_id:
+        # Get organizationId
+        org_id = payload.get("organizationID", "")
+        if not org_id:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token: missing orgSchemaName/organisationId"
+                detail="Invalid token: missing organizationID"
             )
         
         # Map roles to permissions
         permissions = permissions_manager.get_permissions_for_roles(roles)
         
-        # Build tenant schema (orgSchemaName already includes org_ prefix)
+        # Get tenant schema from token
+        tenant_schema = payload.get("orgSchemaName") or payload.get("schemaName") or payload.get("schema_name")
         if not tenant_schema:
-            tenant_schema = f"org_{org_id.replace('-', '_')}"
+            # Fallback: construct from org_id
+            tenant_schema = org_id if org_id.startswith("org_") else f"org_{org_id}"
         
         return JWTPayload(
             sub=payload["sub"],

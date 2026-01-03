@@ -3,12 +3,16 @@ roles:
     - organization:create
     - organization:manage
     - organization:view
+    - care-session:read
+    - care-session:admin
 
   ORG_ADMIN:
     - organization:view
     - user:manage
     - nfc:assign
+    - care-session:read
     - care-session:report
+    - care-session:admin
 
   CAREGIVER:
     - nfc:check-in
