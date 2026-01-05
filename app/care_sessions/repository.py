@@ -1,10 +1,11 @@
 """Care Session Repository Layer"""
 from uuid import UUID
 from datetime import datetime
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Dict
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, or_, text, func
 from app.care_sessions.models import CareSession
+from app.db.models import Patient, User
 
 
 class CareSessionRepository:
@@ -146,6 +147,26 @@ class CareSessionRepository:
             stmt = stmt.offset(offset)
         result = await self.db.execute(stmt)
         return result.scalars().all()
+
+    async def get_patients_by_ids(self, patient_ids: List[UUID]) -> Dict[UUID, Patient]:
+        """Fetch patients by IDs from the tenant cache."""
+        if not patient_ids:
+            return {}
+        await self._set_search_path()
+        stmt = select(Patient).where(Patient.id.in_(patient_ids))
+        result = await self.db.execute(stmt)
+        patients = result.scalars().all()
+        return {patient.id: patient for patient in patients}
+
+    async def get_users_by_ids(self, user_ids: List[UUID]) -> Dict[UUID, User]:
+        """Fetch users by IDs from the tenant cache."""
+        if not user_ids:
+            return {}
+        await self._set_search_path()
+        stmt = select(User).where(User.id.in_(user_ids))
+        result = await self.db.execute(stmt)
+        users = result.scalars().all()
+        return {user.id: user for user in users}
     async def list_sessions(
         self,
         caregiver_id: Optional[UUID] = None,
