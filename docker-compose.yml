@@ -9,8 +9,8 @@ services:
     ports:
       - "8002:8000"
     depends_on:
-      - rabbitmq
-    network_mode: bridge
+      rabbitmq:
+        condition: service_healthy
 
   care-session-consumer:
     build: .
@@ -19,11 +19,12 @@ services:
       - .env
     command: ["python", "start_consumer.py"]
     depends_on:
-      - rabbitmq
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
     volumes:
       - ./app:/app/app
       - ./start_consumer.py:/app/start_consumer.py
-    network_mode: bridge
 
   rabbitmq:
     image: rabbitmq:3-management
@@ -35,4 +36,9 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
-    network_mode: bridge
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
