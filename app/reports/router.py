@@ -5,7 +5,12 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.postgres import get_db
 from app.reports.service import ReportsService
-from app.reports.schemas import CareSessionReportPage, CareSessionReportItem
+from app.reports.schemas import (
+    CareSessionReportPage,
+    CareSessionReportItem,
+    CaregiverListItem,
+    CaregiverPerformanceItem,
+)
 from app.care_sessions.repository import CareSessionRepository
 from app.auth.middleware import JWTPayload, verify_token, check_permission
 
@@ -165,3 +170,81 @@ async def download_individual_session_report(
         return StreamingResponse(pdf_buffer, media_type="application/pdf", headers={"Content-Disposition": f"attachment; filename=session_{session_id}.pdf"})
     else:
         raise HTTPException(status_code=400, detail="Invalid format")
+
+
+@router.get("/caregivers", response_model=list[CaregiverListItem])
+async def list_caregivers(
+    limit: int = Query(100, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+    service: ReportsService = Depends(get_reports_service),
+    jwt_payload: JWTPayload = Depends(verify_token),
+):
+    """List caregivers for selector dropdowns."""
+    check_permission(jwt_payload, "care-session:report")
+    return await service.get_caregiver_list(limit, offset)
+
+
+@router.get("/caregivers/performance", response_model=list[CaregiverPerformanceItem])
+async def caregiver_performance(
+    start_date: datetime | None = Query(None),
+    end_date: datetime | None = Query(None),
+    service: ReportsService = Depends(get_reports_service),
+    jwt_payload: JWTPayload = Depends(verify_token),
+):
+    """Aggregate caregiver performance metrics."""
+    check_permission(jwt_payload, "care-session:report")
+    return await service.get_caregiver_performance(start_date, end_date)
+
+
+@router.get("/caregivers/download")
+async def download_caregiver_performance(
+    format: str = Query("json", enum=["json", "csv", "pdf"]),
+    start_date: datetime | None = Query(None),
+    end_date: datetime | None = Query(None),
+    service: ReportsService = Depends(get_reports_service),
+    jwt_payload: JWTPayload = Depends(verify_token),
+):
+    """Download caregiver performance report."""
+    check_permission(jwt_payload, "care-session:report")
+    caregivers = await service.get_caregiver_performance(start_date, end_date)
+
+    if format == "csv":
+        csv_buffer = service.generate_caregiver_csv(caregivers)
+        return StreamingResponse(csv_buffer, media_type="text/csv", headers={"Content-Disposition": "attachment; filename=caregiver_performance.csv"})
+    elif format == "pdf":
+        pdf_buffer = service.generate_caregiver_pdf(caregivers, "Caregiver Performance Report")
+        return StreamingResponse(pdf_buffer, media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=caregiver_performance.pdf"})
+    else:
+        raise HTTPException(status_code=400, detail="Invalid format")
+
+
+@router.get("/caregivers/{caregiver_id}/download")
+async def download_caregiver_report(
+    caregiver_id: UUID,
+    format: str = Query("json", enum=["json", "csv", "pdf"]),
+    start_date: datetime | None = Query(None),
+    end_date: datetime | None = Query(None),
+    service: ReportsService = Depends(get_reports_service),
+    jwt_payload: JWTPayload = Depends(verify_token),
+):
+    """Download report for a single caregiver."""
+    check_permission(jwt_payload, "care-session:report")
+    caregivers = await service.get_caregiver_performance(start_date, end_date, caregiver_id)
+
+    if format == "csv":
+        csv_buffer = service.generate_caregiver_csv(caregivers)
+        return StreamingResponse(csv_buffer, media_type="text/csv", headers={"Content-Disposition": f"attachment; filename=caregiver_{caregiver_id}.csv"})
+    elif format == "pdf":
+        pdf_buffer = service.generate_caregiver_pdf(caregivers, f"Caregiver Report - {caregiver_id}")
+        return StreamingResponse(pdf_buffer, media_type="application/pdf", headers={"Content-Disposition": f"attachment; filename=caregiver_{caregiver_id}.pdf"})
+    else:
+        raise HTTPException(status_code=400, detail="Invalid format")
+
+
+# TODO: feedback endpoints (table: feedbak) will be implemented when available.
+# @router.get("/caregivers/{caregiver_id}/feedback", response_model=list[...])
+# async def list_caregiver_feedback(...):
+#     ...
+# @router.get("/caregivers/{caregiver_id}/feedback/download")
+# async def download_caregiver_feedback(...):
+#     ...

@@ -27,3 +27,23 @@ class CareSessionReportPage(BaseModel):
     """Cursor-paginated report response."""
     items: List[CareSessionReportItem]
     next_cursor: Optional[str] = None
+
+
+class CaregiverListItem(BaseModel):
+    """Caregiver list item for selectors."""
+    id: UUID
+    full_name: str
+    email: Optional[str] = None
+    is_active: bool
+
+
+class CaregiverPerformanceItem(BaseModel):
+    """Aggregated caregiver performance."""
+    caregiver_id: UUID
+    caregiver_full_name: str
+    caregiver_email: Optional[str] = None
+    total_sessions: int
+    completed_sessions: int
+    avg_rating: Optional[float] = None
+    avg_duration_minutes: Optional[float] = None
+    status: str

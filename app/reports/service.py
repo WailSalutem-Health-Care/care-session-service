@@ -6,7 +6,7 @@ from io import BytesIO
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from app.care_sessions.repository import CareSessionRepository
-from app.reports.schemas import CareSessionReportItem
+from app.reports.schemas import CareSessionReportItem, CaregiverListItem, CaregiverPerformanceItem
 from app.care_sessions.exceptions import CareSessionNotFoundException
 from app.db.models import Patient, User
 
@@ -57,6 +57,9 @@ class ReportsService:
 
     def _build_cursor(self, cursor_time: datetime, cursor_id: UUID) -> str:
         return f"{cursor_time.isoformat()}|{cursor_id}"
+
+    def _format_full_name(self, first_name: Optional[str], last_name: Optional[str]) -> str:
+        return " ".join([name for name in [first_name, last_name] if name])
 
     async def _load_cache_maps(self, sessions) -> Tuple[Dict[UUID, Patient], Dict[UUID, User]]:
         patient_ids = {session.patient_id for session in sessions}
@@ -113,6 +116,99 @@ class ReportsService:
             for session in sessions
         ]
         return items, next_cursor
+
+    async def get_caregiver_list(self, limit: int = 100, offset: int = 0) -> List[CaregiverListItem]:
+        caregivers = await self.repository.get_caregiver_list(limit, offset)
+        return [
+            CaregiverListItem(
+                id=caregiver.id,
+                full_name=self._format_full_name(caregiver.first_name, caregiver.last_name),
+                email=caregiver.email,
+                is_active=caregiver.is_active,
+            )
+            for caregiver in caregivers
+        ]
+
+    async def get_caregiver_performance(
+        self,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+        caregiver_id: Optional[UUID] = None,
+    ) -> List[CaregiverPerformanceItem]:
+        rows = await self.repository.get_caregiver_performance(start_date, end_date, caregiver_id)
+        items: List[CaregiverPerformanceItem] = []
+        for row in rows:
+            full_name = self._format_full_name(row.first_name, row.last_name)
+            status = "Active" if row.is_active else "Inactive"
+            items.append(
+                CaregiverPerformanceItem(
+                    caregiver_id=row.id,
+                    caregiver_full_name=full_name,
+                    caregiver_email=row.email,
+                    total_sessions=int(row.total_sessions or 0),
+                    completed_sessions=int(row.completed_sessions or 0),
+                    avg_rating=None,
+                    avg_duration_minutes=float(row.avg_duration_minutes) if row.avg_duration_minutes is not None else None,
+                    status=status,
+                )
+            )
+        return items
+
+    def generate_caregiver_csv(self, caregivers: List[CaregiverPerformanceItem]) -> BytesIO:
+        """Generate CSV file from caregiver performance data."""
+        data = []
+        for caregiver in caregivers:
+            data.append({
+                "Caregiver ID": str(caregiver.caregiver_id),
+                "Caregiver Name": caregiver.caregiver_full_name,
+                "Caregiver Email": caregiver.caregiver_email or "",
+                "Total Sessions": caregiver.total_sessions,
+                "Completed Sessions": caregiver.completed_sessions,
+                "Avg Rating": caregiver.avg_rating if caregiver.avg_rating is not None else "",
+                "Avg Duration (Minutes)": caregiver.avg_duration_minutes if caregiver.avg_duration_minutes is not None else "",
+                "Status": caregiver.status,
+            })
+        df = pd.DataFrame(data)
+        buffer = BytesIO()
+        df.to_csv(buffer, index=False)
+        buffer.seek(0)
+        return buffer
+
+    def generate_caregiver_pdf(self, caregivers: List[CaregiverPerformanceItem], title: str) -> BytesIO:
+        """Generate PDF file from caregiver performance data."""
+        buffer = BytesIO()
+        c = canvas.Canvas(buffer, pagesize=letter)
+        width, height = letter
+        line_x1 = 50
+        line_x2 = width - 50
+
+        c.setFont("Helvetica-Bold", 16)
+        c.drawString(100, height - 50, title)
+
+        y = height - 80
+        c.setFont("Helvetica", 10)
+
+        for caregiver in caregivers:
+            if y < 200:
+                c.showPage()
+                y = height - 50
+                c.setFont("Helvetica", 10)
+
+            c.drawString(50, y, f"Caregiver ID: {caregiver.caregiver_id}")
+            c.drawString(50, y - 15, f"Name: {caregiver.caregiver_full_name}")
+            c.drawString(50, y - 30, f"Email: {caregiver.caregiver_email or ''}")
+            c.drawString(50, y - 45, f"Total Sessions: {caregiver.total_sessions}")
+            c.drawString(50, y - 60, f"Completed Sessions: {caregiver.completed_sessions}")
+            c.drawString(50, y - 75, f"Avg Rating: {caregiver.avg_rating if caregiver.avg_rating is not None else ''}")
+            c.drawString(50, y - 90, f"Avg Duration (Minutes): {caregiver.avg_duration_minutes if caregiver.avg_duration_minutes is not None else ''}")
+            c.drawString(50, y - 105, f"Status: {caregiver.status}")
+            c.setLineWidth(0.5)
+            c.line(line_x1, y - 120, line_x2, y - 120)
+            y -= 140
+
+        c.save()
+        buffer.seek(0)
+        return buffer
 
     async def get_all_time_session_report(
         self,
