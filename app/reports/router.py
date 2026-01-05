@@ -1,5 +1,5 @@
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, Query, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,10 +22,31 @@ router = APIRouter(
 )
 
 
+def _resolve_period_range(period: str) -> tuple[datetime, datetime]:
+    now = datetime.utcnow()
+    if period == "day":
+        start = datetime(now.year, now.month, now.day)
+        end = start + timedelta(days=1) - timedelta(microseconds=1)
+        return start, end
+    if period == "week":
+        start = datetime(now.year, now.month, now.day) - timedelta(days=now.weekday())
+        end = start + timedelta(days=7) - timedelta(microseconds=1)
+        return start, end
+    if period == "month":
+        start = datetime(now.year, now.month, 1)
+        if start.month == 12:
+            end = datetime(start.year + 1, 1, 1) - timedelta(microseconds=1)
+        else:
+            end = datetime(start.year, start.month + 1, 1) - timedelta(microseconds=1)
+        return start, end
+    raise ValueError("Invalid period")
+
+
 @router.get("/sessions/period", response_model=CareSessionReportPage)
 async def get_period_session_report(
-    start_date: datetime = Query(...),
-    end_date: datetime = Query(...),
+    start_date: datetime | None = Query(None),
+    end_date: datetime | None = Query(None),
+    period: str | None = Query(None, enum=["day", "week", "month"]),
     limit: int = Query(100, ge=1, le=1000),
     cursor: str | None = Query(None),
     service: ReportsService = Depends(get_reports_service),
@@ -33,6 +54,13 @@ async def get_period_session_report(
 ):
     """Get reports for care sessions in a specific time period"""
     check_permission(jwt_payload, "care-session:report")
+    if period:
+        try:
+            start_date, end_date = _resolve_period_range(period)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid period")
+    if not start_date or not end_date:
+        raise HTTPException(status_code=400, detail="start_date and end_date are required when period is not provided")
     try:
         items, next_cursor = await service.get_period_session_report(start_date, end_date, limit, cursor)
     except ValueError:
@@ -58,14 +86,22 @@ async def get_all_time_session_report(
 
 @router.get("/sessions/period/download")
 async def download_period_session_report(
-    start_date: datetime = Query(...),
-    end_date: datetime = Query(...),
+    start_date: datetime | None = Query(None),
+    end_date: datetime | None = Query(None),
+    period: str | None = Query(None, enum=["day", "week", "month"]),
     format: str = Query("json", enum=["json", "csv", "pdf"]),
     service: ReportsService = Depends(get_reports_service),
     jwt_payload: JWTPayload = Depends(verify_token),
 ):
     """Download reports for care sessions in a specific time period"""
     check_permission(jwt_payload, "care-session:report")
+    if period:
+        try:
+            start_date, end_date = _resolve_period_range(period)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid period")
+    if not start_date or not end_date:
+        raise HTTPException(status_code=400, detail="start_date and end_date are required when period is not provided")
     sessions, _ = await service.get_period_session_report(start_date, end_date, None, None)
 
     if format == "csv":

@@ -50,12 +50,15 @@ class Patient(Base):
     __table_args__ = {'extend_existing': True}
     
     id = Column(UUID(as_uuid=True), primary_key=True)
-    full_name = Column(String(255), nullable=False)
+    first_name = Column(String(255), nullable=False)
+    last_name = Column(String(255), nullable=False)
     email = Column(String(255), nullable=True)
     phone_number = Column(String(20), nullable=True)
     date_of_birth = Column(Date, nullable=True)
     address = Column(Text, nullable=True)
     medical_notes = Column(Text, nullable=True)
+    careplan_type = Column(String(50), nullable=True)
+    careplan_frequency = Column(String(50), nullable=True)
     is_active = Column(Boolean, nullable=False)
     created_at = Column(DateTime, nullable=False)
     updated_at = Column(DateTime, nullable=False)
@@ -71,7 +74,8 @@ class User(Base):
     __table_args__ = {'extend_existing': True}
     
     id = Column(UUID(as_uuid=True), primary_key=True)
-    full_name = Column(String(255), nullable=False)
+    first_name = Column(String(255), nullable=False)
+    last_name = Column(String(255), nullable=False)
     email = Column(String(255), nullable=True)
     role = Column(String(50), nullable=True)
     is_active = Column(Boolean, nullable=False, default=True)

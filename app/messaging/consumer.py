@@ -239,9 +239,6 @@ class OrganizationEventConsumer:
         
         first_name = self._get_value(event_data, "first_name", "firstName")
         last_name = self._get_value(event_data, "last_name", "lastName")
-        full_name = self._get_value(event_data, "full_name", "fullName")
-        if not full_name:
-            full_name = " ".join([name for name in [first_name, last_name] if name])
         
         created_at = self._parse_datetime(self._get_value(event_data, "created_at", "createdAt")) or datetime.utcnow()
         updated_at = self._parse_datetime(self._get_value(event_data, "updated_at", "updatedAt")) or created_at
@@ -251,12 +248,15 @@ class OrganizationEventConsumer:
         
         stmt = insert(Patient).values(
             id=UUID(patient_id),
-            full_name=full_name or "",
+            first_name=first_name or "",
+            last_name=last_name or "",
             email=self._get_value(event_data, "email"),
             phone_number=self._get_value(event_data, "phone_number", "phoneNumber"),
             date_of_birth=self._parse_date(self._get_value(event_data, "date_of_birth", "dateOfBirth")),
             address=self._get_value(event_data, "address"),
             medical_notes=self._get_value(event_data, "medical_notes", "medicalNotes"),
+            careplan_type=self._get_value(event_data, "careplan_type", "careplanType"),
+            careplan_frequency=self._get_value(event_data, "careplan_frequency", "careplanFrequency"),
             is_active=is_active,
             created_at=created_at,
             updated_at=updated_at,
@@ -264,12 +264,15 @@ class OrganizationEventConsumer:
         ).on_conflict_do_update(
             index_elements=[Patient.id],
             set_={
-                "full_name": full_name or "",
+                "first_name": first_name or "",
+                "last_name": last_name or "",
                 "email": self._get_value(event_data, "email"),
                 "phone_number": self._get_value(event_data, "phone_number", "phoneNumber"),
                 "date_of_birth": self._parse_date(self._get_value(event_data, "date_of_birth", "dateOfBirth")),
                 "address": self._get_value(event_data, "address"),
                 "medical_notes": self._get_value(event_data, "medical_notes", "medicalNotes"),
+                "careplan_type": self._get_value(event_data, "careplan_type", "careplanType"),
+                "careplan_frequency": self._get_value(event_data, "careplan_frequency", "careplanFrequency"),
                 "is_active": is_active,
                 "updated_at": updated_at,
                 "deleted_at": None,
@@ -344,9 +347,6 @@ class OrganizationEventConsumer:
         
         first_name = self._get_value(event_data, "first_name", "firstName")
         last_name = self._get_value(event_data, "last_name", "lastName")
-        full_name = self._get_value(event_data, "full_name", "fullName")
-        if not full_name:
-            full_name = " ".join([name for name in [first_name, last_name] if name])
         
         created_at = self._parse_datetime(self._get_value(event_data, "created_at", "createdAt")) or datetime.utcnow()
         updated_at = self._parse_datetime(self._get_value(event_data, "updated_at", "updatedAt")) or created_at
@@ -356,7 +356,8 @@ class OrganizationEventConsumer:
         
         stmt = insert(User).values(
             id=UUID(user_id),
-            full_name=full_name or "",
+            first_name=first_name or "",
+            last_name=last_name or "",
             email=self._get_value(event_data, "email"),
             role=role,
             is_active=is_active,
@@ -366,7 +367,8 @@ class OrganizationEventConsumer:
         ).on_conflict_do_update(
             index_elements=[User.id],
             set_={
-                "full_name": full_name or "",
+                "first_name": first_name or "",
+                "last_name": last_name or "",
                 "email": self._get_value(event_data, "email"),
                 "role": role,
                 "is_active": is_active,

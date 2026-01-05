@@ -13,16 +13,27 @@ from app.db.models import Patient, User
 
 def to_report_response(session, patient: Optional[Patient], caregiver: Optional[User]) -> CareSessionReportItem:
     """Convert CareSession model to report response schema."""
+    duration_minutes = None
+    if session.check_in_time and session.check_out_time:
+        duration_minutes = int((session.check_out_time - session.check_in_time).total_seconds() / 60)
+    patient_full_name = None
+    if patient:
+        patient_full_name = " ".join([name for name in [patient.first_name, patient.last_name] if name])
+    caregiver_full_name = None
+    if caregiver:
+        caregiver_full_name = " ".join([name for name in [caregiver.first_name, caregiver.last_name] if name])
     return CareSessionReportItem(
         id=session.id,
         patient_id=session.patient_id,
-        patient_full_name=patient.full_name if patient else None,
+        patient_full_name=patient_full_name,
         patient_email=patient.email if patient else None,
+        careplan_type=patient.careplan_type if patient else None,
         caregiver_id=session.caregiver_id,
-        caregiver_full_name=caregiver.full_name if caregiver else None,
+        caregiver_full_name=caregiver_full_name,
         caregiver_email=caregiver.email if caregiver else None,
         check_in_time=session.check_in_time,
         check_out_time=session.check_out_time,
+        duration_minutes=duration_minutes,
         status=session.status,
         caregiver_notes=session.caregiver_notes,
         created_at=session.created_at,
@@ -145,11 +156,13 @@ class ReportsService:
                 'Patient ID': str(session.patient_id),
                 'Patient Name': session.patient_full_name or '',
                 'Patient Email': session.patient_email or '',
+                'Careplan Type': session.careplan_type or '',
                 'Caregiver ID': str(session.caregiver_id),
                 'Caregiver Name': session.caregiver_full_name or '',
                 'Caregiver Email': session.caregiver_email or '',
                 'Check In Time': session.check_in_time.isoformat() if session.check_in_time else '',
                 'Check Out Time': session.check_out_time.isoformat() if session.check_out_time else '',
+                'Duration (Minutes)': session.duration_minutes if session.duration_minutes is not None else '',
                 'Status': session.status,
                 'Caregiver Notes': session.caregiver_notes or '',
                 'Created At': session.created_at.isoformat(),
@@ -177,7 +190,7 @@ class ReportsService:
         c.setFont("Helvetica", 10)
 
         for session in sessions:
-            if y < 220:
+            if y < 250:
                 c.showPage()
                 y = height - 50
                 c.setFont("Helvetica", 10)
@@ -186,16 +199,18 @@ class ReportsService:
             c.drawString(50, y - 15, f"Patient ID: {session.patient_id}")
             c.drawString(50, y - 30, f"Patient Name: {session.patient_full_name or ''}")
             c.drawString(50, y - 45, f"Patient Email: {session.patient_email or ''}")
-            c.drawString(50, y - 60, f"Caregiver ID: {session.caregiver_id}")
-            c.drawString(50, y - 75, f"Caregiver Name: {session.caregiver_full_name or ''}")
-            c.drawString(50, y - 90, f"Caregiver Email: {session.caregiver_email or ''}")
-            c.drawString(50, y - 105, f"Check In: {session.check_in_time}")
-            c.drawString(50, y - 120, f"Check Out: {session.check_out_time}")
-            c.drawString(50, y - 135, f"Status: {session.status}")
-            c.drawString(50, y - 150, f"Notes: {session.caregiver_notes or ''}")
+            c.drawString(50, y - 60, f"Careplan Type: {session.careplan_type or ''}")
+            c.drawString(50, y - 75, f"Caregiver ID: {session.caregiver_id}")
+            c.drawString(50, y - 90, f"Caregiver Name: {session.caregiver_full_name or ''}")
+            c.drawString(50, y - 105, f"Caregiver Email: {session.caregiver_email or ''}")
+            c.drawString(50, y - 120, f"Check In: {session.check_in_time}")
+            c.drawString(50, y - 135, f"Check Out: {session.check_out_time}")
+            c.drawString(50, y - 150, f"Duration (Minutes): {session.duration_minutes if session.duration_minutes is not None else ''}")
+            c.drawString(50, y - 165, f"Status: {session.status}")
+            c.drawString(50, y - 180, f"Notes: {session.caregiver_notes or ''}")
             c.setLineWidth(0.5)
-            c.line(line_x1, y - 165, line_x2, y - 165)
-            y -= 185
+            c.line(line_x1, y - 195, line_x2, y - 195)
+            y -= 215
 
         c.save()
         buffer.seek(0)
