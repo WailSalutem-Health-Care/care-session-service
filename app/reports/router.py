@@ -5,9 +5,8 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.postgres import get_db
 from app.reports.service import ReportsService
-from app.reports.schemas import CareSessionReportPage
+from app.reports.schemas import CareSessionReportPage, CareSessionReportItem
 from app.care_sessions.repository import CareSessionRepository
-from app.care_sessions.schemas import CareSessionResponse
 from app.auth.middleware import JWTPayload, verify_token, check_permission
 
 
@@ -99,7 +98,7 @@ async def download_all_time_session_report(
         raise HTTPException(status_code=400, detail="Invalid format")
 
 
-@router.get("/sessions/{session_id}", response_model=CareSessionResponse)
+@router.get("/sessions/{session_id}", response_model=CareSessionReportItem)
 async def get_individual_session_report(
     session_id: UUID,
     service: ReportsService = Depends(get_reports_service),
