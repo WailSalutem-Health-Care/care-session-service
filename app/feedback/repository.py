@@ -1,8 +1,9 @@
 """Feedback repository for database operations"""
 from uuid import UUID
-from typing import Optional, Tuple, List
+from typing import Optional, Tuple, List, Dict
+from datetime import date, datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, text, func
+from sqlalchemy import select, text, func, and_, cast, Date
 from app.feedback.models import Feedback
 
 
@@ -86,3 +87,40 @@ class FeedbackRepository:
         await self._set_search_path()
         await self.db.delete(feedback)
         await self.db.commit()
+    
+    async def get_daily_averages(self, start_date: date, end_date: date) -> List[Dict]:
+        """Get daily average ratings for a date range."""
+        await self._set_search_path()
+        
+        date_col = cast(Feedback.created_at, Date)
+        stmt = select(
+            date_col.label('date'),
+            func.avg(Feedback.rating).label('average_rating'),
+            func.count(Feedback.id).label('total_feedbacks')
+        ).where(
+            and_(date_col >= start_date, date_col <= end_date)
+        ).group_by(date_col).order_by(date_col)
+        
+        result = await self.db.execute(stmt)
+        return [
+            {'date': row.date, 'average_rating': float(row.average_rating), 'total_feedbacks': row.total_feedbacks}
+            for row in result.all()
+        ]
+    
+    async def get_caregiver_weekly_feedbacks(
+        self, caregiver_id: UUID, week_start: date, week_end: date
+    ) -> List[Feedback]:
+        """Get all feedbacks for a caregiver within a week (Monday-Sunday)."""
+        await self._set_search_path()
+        
+        date_col = cast(Feedback.created_at, Date)
+        stmt = select(Feedback).where(
+            and_(
+                Feedback.caregiver_id == caregiver_id,
+                date_col >= week_start,
+                date_col <= week_end
+            )
+        ).order_by(Feedback.created_at)
+        
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
