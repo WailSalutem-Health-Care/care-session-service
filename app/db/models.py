@@ -5,6 +5,19 @@ from sqlalchemy.dialects.postgresql import UUID
 from app.db.postgres import Base
 
 
+class Organization(Base):
+    """
+    Organizations table - in wailsalutem schema.
+    Maps organization UUID to schema name.
+    """
+    __tablename__ = "organizations"
+    __table_args__ = {'schema': 'wailsalutem'}
+    
+    id = Column(UUID(as_uuid=True), primary_key=True)
+    name = Column(String(255), nullable=False)
+    schema_name = Column(String(100), nullable=False, unique=True)
+
+
 class NFCTag(Base):
     """
     NFC tags table - owned by another service.
