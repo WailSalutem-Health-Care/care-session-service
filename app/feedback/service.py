@@ -5,6 +5,7 @@ from app.feedback.models import Feedback
 from app.feedback.repository import FeedbackRepository
 from app.feedback.exceptions import (
     FeedbackAlreadyExistsException,
+    FeedbackNotFoundException,
 )
 
 
@@ -41,4 +42,14 @@ class FeedbackService:
         )
         
         return await self.repository.create(feedback)
+    
+    async def get_feedback_by_id(self, feedback_id: UUID) -> Feedback:
+        """
+        Get feedback by ID.
+        """
+        feedback = await self.repository.get_by_id(feedback_id)
+        if not feedback:
+            raise FeedbackNotFoundException(feedback_id)
+        
+        return feedback
 

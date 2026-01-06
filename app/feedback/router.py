@@ -1,4 +1,5 @@
 """Feedback REST API endpoints"""
+from uuid import UUID
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.postgres import get_db
@@ -48,6 +49,25 @@ async def create_feedback(
         patient_id=jwt_payload.user_id,
         rating=request.rating,
     )
+    
+    return to_response(feedback)
+
+
+@router.get("/feedback/{feedback_id}", response_model=FeedbackResponse)
+async def get_feedback_by_id(
+    feedback_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    jwt_payload: JWTPayload = Depends(verify_token),
+):
+    """
+    Get patient's own feedback by ID.
+    
+    Required permission: feedback:read (PATIENT role)
+    """
+    check_permission(jwt_payload, "feedback:read")
+    
+    service = FeedbackService(db, jwt_payload.tenant_schema)
+    feedback = await service.get_feedback_by_id(feedback_id=feedback_id)
     
     return to_response(feedback)
 
