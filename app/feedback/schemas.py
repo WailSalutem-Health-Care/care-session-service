@@ -1,7 +1,7 @@
 """Feedback Pydantic schemas"""
 from uuid import UUID
 from datetime import datetime
-from typing import List
+from typing import List, Dict
 from pydantic import BaseModel, Field
 
 
@@ -16,14 +16,52 @@ class FeedbackResponse(BaseModel):
     id: UUID
     care_session_id: UUID
     patient_id: UUID
+    caregiver_id: UUID
     rating: int
+    satisfaction_level: str  # VERY_DISSATISFIED, DISSATISFIED, NEUTRAL, SATISFIED, VERY_SATISFIED
     created_at: datetime
 
 
+class FeedbackMetrics(BaseModel):
+    """Satisfaction metrics"""
+    average_rating: float
+    satisfaction_index: float  # 0-100 scale
+    total_feedbacks: int
+    distribution: Dict[str, float]  # Percentage distribution of star ratings
+    satisfaction_levels: Dict[str, int]  # Count by satisfaction level
+
+
 class FeedbackListResponse(BaseModel):
-    """Paginated list of feedbacks"""
+    """Paginated list of feedbacks with metrics"""
     feedbacks: List[FeedbackResponse]
     total: int
     page: int
     page_size: int
     total_pages: int
+    metrics: FeedbackMetrics
+
+
+class DailyAverageResponse(BaseModel):
+    """Daily average feedback rating"""
+    date: str  # YYYY-MM-DD
+    average_rating: float
+    total_feedbacks: int
+    satisfaction_index: float  # 0-100 scale
+
+
+class DailyAverageListResponse(BaseModel):
+    """List of daily average feedback ratings"""
+    daily_averages: List[DailyAverageResponse]
+    overall_metrics: FeedbackMetrics
+
+
+class CaregiverWeeklyMetrics(BaseModel):
+    """Caregiver's weekly feedback metrics"""
+    caregiver_id: UUID
+    week_start: str  # YYYY-MM-DD (Monday)
+    week_end: str  # YYYY-MM-DD (Sunday)
+    average_rating: float
+    total_feedbacks: int
+    satisfaction_index: float  # 0-100 scale
+    distribution: Dict[str, float]  # Percentage distribution of star ratings
+    satisfaction_levels: Dict[str, int]  # Count by satisfaction level

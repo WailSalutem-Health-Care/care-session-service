@@ -13,5 +13,6 @@ class Feedback(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     care_session_id = Column(UUID(as_uuid=True), nullable=False, index=True)
     patient_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    caregiver_id = Column(UUID(as_uuid=True), nullable=False, index=True)
     rating = Column(Integer, nullable=False)  # 1-5 stars
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
