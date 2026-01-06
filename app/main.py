@@ -4,11 +4,14 @@ load_dotenv()
 from fastapi import FastAPI
 from app.care_sessions.router import router as care_sessions_router
 from app.reports.router import router as reports_router
+from app.feedback.router import router as feedback_router
+
 
 app = FastAPI()
 
 app.include_router(care_sessions_router)
 app.include_router(reports_router)
+app.include_router(feedback_router)
 
 @app.get("/health")
 def health():

@@ -23,6 +23,19 @@ class CareSession(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     deleted_at = Column(DateTime, nullable=True)
 
+class Organization(Base):
+    """
+    Organizations table - in wailsalutem schema.
+    Maps organization UUID to schema name.
+    """
+    __tablename__ = "organizations"
+    __table_args__ = {'schema': 'wailsalutem'}
+    
+    id = Column(UUID(as_uuid=True), primary_key=True)
+    name = Column(String(255), nullable=False)
+    schema_name = Column(String(100), nullable=False, unique=True)
+
+
 class NFCTag(Base):
     """
     NFC tags table - owned by another service.
