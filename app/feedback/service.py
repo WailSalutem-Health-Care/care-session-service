@@ -1,5 +1,6 @@
 """Feedback service layer for business logic"""
 from uuid import UUID
+from typing import Tuple, List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.feedback.models import Feedback
 from app.feedback.repository import FeedbackRepository
@@ -52,4 +53,26 @@ class FeedbackService:
             raise FeedbackNotFoundException(feedback_id)
         
         return feedback
-
+    
+    async def list_feedbacks(
+        self,
+        patient_id: Optional[UUID] = None,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> Tuple[List[Feedback], int]:
+        """
+        List feedbacks with pagination and filters.
+        
+        Args:
+            patient_id: Filter by patient (optional)
+            page: Page number (1-indexed)
+            page_size: Number of results per page
+            
+        Returns:
+            Tuple of (feedbacks, total_count)
+        """
+        return await self.repository.list_feedbacks(
+            patient_id=patient_id,
+            page=page,
+            page_size=page_size,
+        )
