@@ -25,13 +25,14 @@ class FeedbackService:
         care_session_id: UUID,
         patient_id: UUID,
         rating: int,
+        patient_feedback: Optional[str] = None,
     ) -> Feedback:
         """
         Create feedback for a care session.
         
         Business rules:
         - Patient can only create one feedback per session
-        - Rating must be between 1-5
+        - Rating must be between 1-3 (1=Dissatisfied, 2=Neutral, 3=Satisfied)
         - Caregiver ID is looked up from the care session
         """
         # Check if feedback already exists for this session
@@ -50,6 +51,7 @@ class FeedbackService:
             patient_id=patient_id,
             caregiver_id=care_session.caregiver_id,
             rating=rating,
+            patient_feedback=patient_feedback,
         )
         
         return await self.repository.create(feedback)

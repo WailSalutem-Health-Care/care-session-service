@@ -34,6 +34,7 @@ def to_response(feedback: Feedback) -> FeedbackResponse:
         patient_id=feedback.patient_id,
         caregiver_id=feedback.caregiver_id,
         rating=feedback.rating,
+        patient_feedback=feedback.patient_feedback,
         satisfaction_level=satisfaction_level.value,
         created_at=feedback.created_at,
     )
@@ -41,7 +42,7 @@ def to_response(feedback: Feedback) -> FeedbackResponse:
 
 def calculate_satisfaction_index(average_rating: float) -> float:
     """Calculate satisfaction index (0-100 scale) from average rating"""
-    return round((average_rating / 5.0) * 100, 2)
+    return round((average_rating / 3.0) * 100, 2)
 
 
 @router.post("/", response_model=FeedbackResponse, status_code=status.HTTP_201_CREATED)
@@ -56,7 +57,7 @@ async def create_feedback(
     Business rules:
     - Only patients can create feedback
     - One feedback per session
-    - Rating must be 1-5 stars
+    - Rating: 1=Dissatisfied, 2=Neutral, 3=Satisfied
     
     Required permission: feedback:create (PATIENT role)
     """
@@ -67,6 +68,7 @@ async def create_feedback(
         care_session_id=request.care_session_id,
         patient_id=jwt_payload.user_id,
         rating=request.rating,
+        patient_feedback=request.patient_feedback,
     )
     
     return to_response(feedback)
