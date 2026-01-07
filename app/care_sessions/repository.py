@@ -244,6 +244,39 @@ class CareSessionRepository:
 
         result = await self.db.execute(stmt)
         return result.all()
+
+    async def get_caregiver_avg_ratings(
+        self,
+        caregiver_ids: List[UUID],
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+    ) -> Dict[UUID, float]:
+        """Fetch average ratings per caregiver from feedback table."""
+        if not caregiver_ids:
+            return {}
+        await self._set_search_path()
+
+        clauses = ["cs.caregiver_id = ANY(:caregiver_ids)"]
+        params: Dict[str, object] = {"caregiver_ids": caregiver_ids}
+        if start_date:
+            clauses.append("f.created_at >= :start_date")
+            params["start_date"] = start_date
+        if end_date:
+            clauses.append("f.created_at <= :end_date")
+            params["end_date"] = end_date
+
+        stmt = text(
+            f"""
+            SELECT cs.caregiver_id, AVG(f.rating)::float AS avg_rating
+            FROM feedback f
+            JOIN care_sessions cs ON cs.id = f.care_session_id
+            WHERE {' AND '.join(clauses)}
+            GROUP BY cs.caregiver_id
+            """
+        )
+        result = await self.db.execute(stmt, params)
+        return {row.caregiver_id: float(row.avg_rating) for row in result.all()}
+
     async def list_sessions(
         self,
         caregiver_id: Optional[UUID] = None,

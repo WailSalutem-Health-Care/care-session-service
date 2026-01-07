@@ -240,11 +240,3 @@ async def download_caregiver_report(
     else:
         raise HTTPException(status_code=400, detail="Invalid format")
 
-
-# TODO: feedback endpoints (table: feedbak) will be implemented when available.
-# @router.get("/caregivers/{caregiver_id}/feedback", response_model=list[...])
-# async def list_caregiver_feedback(...):
-#     ...
-# @router.get("/caregivers/{caregiver_id}/feedback/download")
-# async def download_caregiver_feedback(...):
-#     ...

@@ -136,6 +136,8 @@ class ReportsService:
         caregiver_id: Optional[UUID] = None,
     ) -> List[CaregiverPerformanceItem]:
         rows = await self.repository.get_caregiver_performance(start_date, end_date, caregiver_id)
+        caregiver_ids = [row.id for row in rows]
+        avg_ratings = await self.repository.get_caregiver_avg_ratings(caregiver_ids, start_date, end_date)
         items: List[CaregiverPerformanceItem] = []
         for row in rows:
             full_name = self._format_full_name(row.first_name, row.last_name)
@@ -147,12 +149,13 @@ class ReportsService:
                     caregiver_email=row.email,
                     total_sessions=int(row.total_sessions or 0),
                     completed_sessions=int(row.completed_sessions or 0),
-                    avg_rating=None,
+                    avg_rating=avg_ratings.get(row.id),
                     avg_duration_minutes=float(row.avg_duration_minutes) if row.avg_duration_minutes is not None else None,
                     status=status,
                 )
             )
         return items
+
 
     def generate_caregiver_csv(self, caregivers: List[CaregiverPerformanceItem]) -> BytesIO:
         """Generate CSV file from caregiver performance data."""
