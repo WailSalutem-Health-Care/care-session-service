@@ -14,6 +14,9 @@ from app.reports.schemas import (
     PatientSummary,
     PatientSessionItem,
     PatientSessionPage,
+    FeedbackReportItem,
+    FeedbackReportPage,
+    FeedbackReportSummary,
 )
 from app.care_sessions.exceptions import CareSessionNotFoundException
 from app.db.models import Patient, User
@@ -335,6 +338,130 @@ class ReportsService:
             c.setLineWidth(0.5)
             c.line(line_x1, y - 135, line_x2, y - 135)
             y -= 155
+
+        c.save()
+        buffer.seek(0)
+        return buffer
+
+    async def get_feedback_report(
+        self,
+        limit: int = 100,
+        cursor: Optional[str] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+        caregiver_id: Optional[UUID] = None,
+        patient_id: Optional[UUID] = None,
+        session_id: Optional[UUID] = None,
+    ) -> FeedbackReportPage:
+        cursor_time = None
+        cursor_id = None
+        if cursor:
+            cursor_time, cursor_id = self._parse_cursor(cursor)
+        fetch_limit = limit + 1 if limit is not None else None
+        rows = await self.repository.get_feedback_list(
+            limit=fetch_limit or 100,
+            cursor_time=cursor_time,
+            cursor_id=cursor_id,
+            start_date=start_date,
+            end_date=end_date,
+            caregiver_id=caregiver_id,
+            patient_id=patient_id,
+            session_id=session_id,
+        )
+        next_cursor = None
+        if limit is not None and len(rows) > limit:
+            last = rows[limit - 1]
+            next_cursor = self._build_cursor(last["feedback_date"], last["id"])
+            rows = rows[:limit]
+
+        patient_ids = {row["patient_id"] for row in rows}
+        caregiver_ids = {row["caregiver_id"] for row in rows}
+        patients = await self.repository.get_patients_by_ids(list(patient_ids))
+        caregivers = await self.repository.get_users_by_ids(list(caregiver_ids))
+
+        items = []
+        for row in rows:
+            patient = patients.get(row["patient_id"])
+            caregiver = caregivers.get(row["caregiver_id"])
+            items.append(
+                FeedbackReportItem(
+                    id=row["id"],
+                    session_id=row["care_session_id"],
+                    patient_id=row["patient_id"],
+                    patient_full_name=self._format_full_name(
+                        patient.first_name, patient.last_name
+                    ) if patient else None,
+                    caregiver_id=row["caregiver_id"],
+                    caregiver_full_name=self._format_full_name(
+                        caregiver.first_name, caregiver.last_name
+                    ) if caregiver else None,
+                    careplan_type=patient.careplan_type if patient else None,
+                    feedback_date=row["feedback_date"],
+                    rating=row["rating"],
+                    comment=row.get("patient_feedback"),
+                )
+            )
+        return FeedbackReportPage(items=items, next_cursor=next_cursor)
+
+    async def get_feedback_summary(
+        self,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+    ) -> FeedbackReportSummary:
+        summary = await self.repository.get_feedback_summary(start_date, end_date)
+        return FeedbackReportSummary(**summary)
+
+    def generate_feedback_csv(self, feedbacks: List[FeedbackReportItem]) -> BytesIO:
+        """Generate CSV file from feedback report data."""
+        data = []
+        for feedback in feedbacks:
+            data.append({
+                "Feedback ID": str(feedback.id),
+                "Session ID": str(feedback.session_id),
+                "Patient": feedback.patient_full_name or "",
+                "Caregiver": feedback.caregiver_full_name or "",
+                "Type": feedback.careplan_type or "",
+                "Date": feedback.feedback_date.isoformat(),
+                "Rating": feedback.rating,
+                "Feedback": feedback.comment or "",
+            })
+        df = pd.DataFrame(data)
+        buffer = BytesIO()
+        df.to_csv(buffer, index=False)
+        buffer.seek(0)
+        return buffer
+
+    def generate_feedback_pdf(self, feedbacks: List[FeedbackReportItem], title: str) -> BytesIO:
+        """Generate PDF file from feedback report data."""
+        buffer = BytesIO()
+        c = canvas.Canvas(buffer, pagesize=letter)
+        width, height = letter
+        line_x1 = 50
+        line_x2 = width - 50
+
+        c.setFont("Helvetica-Bold", 16)
+        c.drawString(100, height - 50, title)
+
+        y = height - 80
+        c.setFont("Helvetica", 10)
+
+        for feedback in feedbacks:
+            if y < 220:
+                c.showPage()
+                y = height - 50
+                c.setFont("Helvetica", 10)
+
+            c.drawString(50, y, f"Feedback ID: {feedback.id}")
+            c.drawString(50, y - 15, f"Session ID: {feedback.session_id}")
+            c.drawString(50, y - 30, f"Patient: {feedback.patient_full_name or ''}")
+            c.drawString(50, y - 45, f"Caregiver: {feedback.caregiver_full_name or ''}")
+            c.drawString(50, y - 60, f"Type: {feedback.careplan_type or ''}")
+            c.drawString(50, y - 75, f"Date: {feedback.feedback_date}")
+            c.drawString(50, y - 90, f"Rating: {feedback.rating}")
+            c.drawString(50, y - 105, f"Feedback: {feedback.comment or ''}")
+            c.setLineWidth(0.5)
+            c.line(line_x1, y - 120, line_x2, y - 120)
+            y -= 140
 
         c.save()
         buffer.seek(0)

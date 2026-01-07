@@ -319,3 +319,92 @@ class ReportsRepository:
         result = await self.db.execute(data_stmt, params)
         rows = [dict(row._mapping) for row in result]
         return rows, total
+
+    async def get_feedback_list(
+        self,
+        limit: int = 100,
+        cursor_time: Optional[datetime] = None,
+        cursor_id: Optional[UUID] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+        caregiver_id: Optional[UUID] = None,
+        patient_id: Optional[UUID] = None,
+        session_id: Optional[UUID] = None,
+    ) -> List[Dict[str, object]]:
+        """List feedback items with optional filters and cursor pagination."""
+        await self._set_search_path()
+        where_clauses = ["f.deleted_at IS NULL", "cs.deleted_at IS NULL"]
+        params: Dict[str, object] = {"limit": limit}
+        if start_date:
+            where_clauses.append("f.created_at >= :start_date")
+            params["start_date"] = start_date
+        if end_date:
+            where_clauses.append("f.created_at <= :end_date")
+            params["end_date"] = end_date
+        if caregiver_id:
+            where_clauses.append("cs.caregiver_id = :caregiver_id")
+            params["caregiver_id"] = caregiver_id
+        if patient_id:
+            where_clauses.append("f.patient_id = :patient_id")
+            params["patient_id"] = patient_id
+        if session_id:
+            where_clauses.append("f.care_session_id = :session_id")
+            params["session_id"] = session_id
+        if cursor_time is not None and cursor_id is not None:
+            where_clauses.append("(f.created_at < :cursor_time OR (f.created_at = :cursor_time AND f.id < :cursor_id))")
+            params["cursor_time"] = cursor_time
+            params["cursor_id"] = cursor_id
+
+        stmt = text(
+            f"""
+            SELECT
+                f.id,
+                f.care_session_id,
+                f.patient_id,
+                cs.caregiver_id,
+                f.rating,
+                f.patient_feedback,
+                f.created_at AS feedback_date
+            FROM feedback f
+            JOIN care_sessions cs ON cs.id = f.care_session_id
+            WHERE {' AND '.join(where_clauses)}
+            ORDER BY f.created_at DESC, f.id DESC
+            LIMIT :limit
+            """
+        )
+        result = await self.db.execute(stmt, params)
+        return [dict(row._mapping) for row in result]
+
+    async def get_feedback_summary(
+        self,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+    ) -> Dict[str, object]:
+        """Get summary metrics for feedback."""
+        await self._set_search_path()
+        where_clauses = ["f.deleted_at IS NULL"]
+        params: Dict[str, object] = {}
+        if start_date:
+            where_clauses.append("f.created_at >= :start_date")
+            params["start_date"] = start_date
+        if end_date:
+            where_clauses.append("f.created_at <= :end_date")
+            params["end_date"] = end_date
+
+        stmt = text(
+            f"""
+            SELECT
+                COUNT(*)::int AS total_feedback,
+                AVG(f.rating)::float AS avg_rating,
+                SUM(CASE WHEN f.rating >= 4 THEN 1 ELSE 0 END)::int AS positive_feedback
+            FROM feedback f
+            WHERE {' AND '.join(where_clauses)}
+            """
+        )
+        result = await self.db.execute(stmt, params)
+        row = result.mappings().first() or {}
+        return {
+            "total_feedback": int(row.get("total_feedback") or 0),
+            "avg_rating": float(row.get("avg_rating")) if row.get("avg_rating") is not None else None,
+            "positive_feedback": int(row.get("positive_feedback") or 0),
+        }

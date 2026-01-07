@@ -13,6 +13,8 @@ from app.reports.schemas import (
     PatientListItem,
     PatientSummary,
     PatientSessionPage,
+    FeedbackReportPage,
+    FeedbackReportSummary,
 )
 from app.reports.repository import ReportsRepository
 from app.auth.middleware import JWTPayload, verify_token, check_permission
@@ -301,5 +303,93 @@ async def download_patient_report(
     elif format == "pdf":
         pdf_buffer = service.generate_patient_sessions_pdf(page.items, f"Patient Report - {patient_id}")
         return StreamingResponse(pdf_buffer, media_type="application/pdf", headers={"Content-Disposition": f"attachment; filename=patient_{patient_id}.pdf"})
+    else:
+        raise HTTPException(status_code=400, detail="Invalid format")
+
+
+@router.get("/feedback", response_model=FeedbackReportPage)
+async def list_feedback_reports(
+    start_date: datetime | None = Query(None),
+    end_date: datetime | None = Query(None),
+    period: str | None = Query(None, enum=["day", "week", "month"]),
+    caregiver_id: UUID | None = Query(None),
+    patient_id: UUID | None = Query(None),
+    session_id: UUID | None = Query(None),
+    limit: int = Query(100, ge=1, le=1000),
+    cursor: str | None = Query(None),
+    service: ReportsService = Depends(get_reports_service),
+    jwt_payload: JWTPayload = Depends(verify_token),
+):
+    """List feedback reports with filters."""
+    check_permission(jwt_payload, "care-session:report")
+    if period:
+        try:
+            start_date, end_date = _resolve_period_range(period)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid period")
+    try:
+        return await service.get_feedback_report(
+            limit=limit,
+            cursor=cursor,
+            start_date=start_date,
+            end_date=end_date,
+            caregiver_id=caregiver_id,
+            patient_id=patient_id,
+            session_id=session_id,
+        )
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid cursor")
+
+
+@router.get("/feedback/summary", response_model=FeedbackReportSummary)
+async def feedback_summary(
+    start_date: datetime | None = Query(None),
+    end_date: datetime | None = Query(None),
+    period: str | None = Query(None, enum=["day", "week", "month"]),
+    service: ReportsService = Depends(get_reports_service),
+    jwt_payload: JWTPayload = Depends(verify_token),
+):
+    """Feedback summary metrics."""
+    check_permission(jwt_payload, "care-session:report")
+    if period:
+        try:
+            start_date, end_date = _resolve_period_range(period)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid period")
+    return await service.get_feedback_summary(start_date, end_date)
+
+
+@router.get("/feedback/download")
+async def download_feedback_report(
+    start_date: datetime | None = Query(None),
+    end_date: datetime | None = Query(None),
+    period: str | None = Query(None, enum=["day", "week", "month"]),
+    format: str = Query("json", enum=["json", "csv", "pdf"]),
+    service: ReportsService = Depends(get_reports_service),
+    jwt_payload: JWTPayload = Depends(verify_token),
+):
+    """Download feedback report."""
+    check_permission(jwt_payload, "care-session:report")
+    if period:
+        try:
+            start_date, end_date = _resolve_period_range(period)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid period")
+    page = await service.get_feedback_report(
+        limit=10000,
+        cursor=None,
+        start_date=start_date,
+        end_date=end_date,
+        caregiver_id=None,
+        patient_id=None,
+        session_id=None,
+    )
+
+    if format == "csv":
+        csv_buffer = service.generate_feedback_csv(page.items)
+        return StreamingResponse(csv_buffer, media_type="text/csv", headers={"Content-Disposition": "attachment; filename=feedback_report.csv"})
+    elif format == "pdf":
+        pdf_buffer = service.generate_feedback_pdf(page.items, "Feedback Report")
+        return StreamingResponse(pdf_buffer, media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=feedback_report.pdf"})
     else:
         raise HTTPException(status_code=400, detail="Invalid format")

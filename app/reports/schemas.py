@@ -85,3 +85,30 @@ class PatientSessionPage(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+class FeedbackReportItem(BaseModel):
+    """Feedback report item."""
+    id: UUID
+    session_id: UUID
+    patient_id: UUID
+    patient_full_name: Optional[str] = None
+    caregiver_id: UUID
+    caregiver_full_name: Optional[str] = None
+    careplan_type: Optional[str] = None
+    feedback_date: datetime
+    rating: int
+    comment: Optional[str] = None
+
+
+class FeedbackReportPage(BaseModel):
+    """Cursor-paginated feedback list."""
+    items: List[FeedbackReportItem]
+    next_cursor: Optional[str] = None
+
+
+class FeedbackReportSummary(BaseModel):
+    """Feedback summary metrics."""
+    total_feedback: int
+    avg_rating: Optional[float] = None
+    positive_feedback: int
