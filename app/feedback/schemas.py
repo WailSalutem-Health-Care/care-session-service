@@ -36,6 +36,7 @@ class FeedbackMetrics(BaseModel):
 class FeedbackListResponse(BaseModel):
     """Paginated list of feedbacks with metrics"""
     feedbacks: List[FeedbackResponse]
+    count: int  # Number of items in current response
     total: int
     page: int
     page_size: int
@@ -54,6 +55,7 @@ class DailyAverageResponse(BaseModel):
 class DailyAverageListResponse(BaseModel):
     """List of daily average feedback ratings"""
     daily_averages: List[DailyAverageResponse]
+    count: int  # Number of daily average items
     overall_metrics: FeedbackMetrics
 
 

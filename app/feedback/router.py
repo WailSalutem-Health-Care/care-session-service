@@ -125,6 +125,7 @@ async def list_feedbacks(
     
     return FeedbackListResponse(
         feedbacks=[to_response(feedback) for feedback in feedbacks],
+        count=len(feedbacks),
         total=total,
         page=page,
         page_size=page_size,
@@ -167,6 +168,7 @@ async def get_daily_averages(
     
     return DailyAverageListResponse(
         daily_averages=daily_responses,
+        count=len(daily_responses),
         overall_metrics=overall_metrics,
     )
 
