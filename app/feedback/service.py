@@ -145,3 +145,13 @@ class FeedbackService:
             Average rating (float) or None if patient has no feedback
         """
         return await self.repository.get_patient_average_rating(patient_id)
+    
+    async def get_top_caregivers_of_week(self, week_start: date, week_end: date) -> List[Dict]:
+        """
+        Get top 3 caregivers of the week based on average feedback rating.
+        
+        Args:
+            week_start: Start of week (Monday)
+            week_end: End of week (Sunday)
+        """
+        return await self.repository.get_top_caregivers_of_week(week_start, week_end, limit=3)

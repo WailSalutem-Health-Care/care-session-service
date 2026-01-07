@@ -75,3 +75,19 @@ class PatientAverageRatingResponse(BaseModel):
     average_rating: Optional[float]
     satisfaction_index: Optional[float]  # 0-100 scale
     total_feedbacks: int
+
+
+class TopCaregiverItem(BaseModel):
+    """Top caregiver of the week"""
+    caregiver_id: UUID
+    average_rating: float
+    satisfaction_index: float  # 0-100 scale
+    total_feedbacks: int
+    rank: int
+
+
+class TopCaregiversResponse(BaseModel):
+    """Top 3 caregivers of the week"""
+    week_start: str  # YYYY-MM-DD (Monday)
+    week_end: str  # YYYY-MM-DD (Sunday)
+    top_caregivers: List[TopCaregiverItem]

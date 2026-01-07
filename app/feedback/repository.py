@@ -134,3 +134,28 @@ class FeedbackRepository:
         avg_rating = result.scalar()
         
         return float(avg_rating) if avg_rating is not None else None
+    
+    async def get_top_caregivers_of_week(self, week_start: date, week_end: date, limit: int = 3) -> List[Dict]:
+        """Get top caregivers of the week based on average feedback rating."""
+        await self._set_search_path()
+        
+        date_col = cast(Feedback.created_at, Date)
+        stmt = select(
+            Feedback.caregiver_id,
+            func.avg(Feedback.rating).label('average_rating'),
+            func.count(Feedback.id).label('total_feedbacks')
+        ).where(
+            and_(date_col >= week_start, date_col <= week_end)
+        ).group_by(Feedback.caregiver_id).order_by(
+            func.avg(Feedback.rating).desc()
+        ).limit(limit)
+        
+        result = await self.db.execute(stmt)
+        return [
+            {
+                'caregiver_id': row.caregiver_id,
+                'average_rating': float(row.average_rating),
+                'total_feedbacks': row.total_feedbacks
+            }
+            for row in result.all()
+        ]
