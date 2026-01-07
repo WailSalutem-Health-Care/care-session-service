@@ -5,8 +5,16 @@ import pandas as pd
 from io import BytesIO
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
-from app.care_sessions.repository import CareSessionRepository
-from app.reports.schemas import CareSessionReportItem, CaregiverListItem, CaregiverPerformanceItem
+from app.reports.repository import ReportsRepository
+from app.reports.schemas import (
+    CareSessionReportItem,
+    CaregiverListItem,
+    CaregiverPerformanceItem,
+    PatientListItem,
+    PatientSummary,
+    PatientSessionItem,
+    PatientSessionPage,
+)
 from app.care_sessions.exceptions import CareSessionNotFoundException
 from app.db.models import Patient, User
 
@@ -44,7 +52,7 @@ def to_report_response(session, patient: Optional[Patient], caregiver: Optional[
 class ReportsService:
     """Service for generating care session reports"""
 
-    def __init__(self, repository: CareSessionRepository):
+    def __init__(self, repository: ReportsRepository):
         self.repository = repository
 
     def _parse_cursor(self, cursor: str) -> Tuple[datetime, UUID]:
@@ -208,6 +216,125 @@ class ReportsService:
             c.setLineWidth(0.5)
             c.line(line_x1, y - 120, line_x2, y - 120)
             y -= 140
+
+        c.save()
+        buffer.seek(0)
+        return buffer
+
+    async def get_patient_list(self, limit: int = 100, offset: int = 0) -> List[PatientListItem]:
+        patients = await self.repository.get_patient_list(limit, offset)
+        return [
+            PatientListItem(
+                id=patient.id,
+                full_name=self._format_full_name(patient.first_name, patient.last_name),
+                email=patient.email,
+                is_active=patient.is_active,
+            )
+            for patient in patients
+        ]
+
+    async def get_patient_summary(self, patient_id: UUID) -> PatientSummary:
+        summary = await self.repository.get_patient_summary(patient_id)
+        return PatientSummary(
+            patient_id=patient_id,
+            total_sessions=summary["total_sessions"],
+            avg_rating=summary["avg_rating"],
+            distinct_caregivers=summary["distinct_caregivers"],
+        )
+
+    async def get_patient_sessions(
+        self,
+        patient_id: UUID,
+        limit: int = 100,
+        offset: int = 0,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+    ) -> PatientSessionPage:
+        rows, total = await self.repository.get_patient_sessions(patient_id, limit, offset, start_date, end_date)
+        caregiver_ids = {row["caregiver_id"] for row in rows}
+        caregivers = await self.repository.get_users_by_ids(list(caregiver_ids))
+        patients = await self.repository.get_patients_by_ids([patient_id])
+        patient = patients.get(patient_id)
+
+        items: List[PatientSessionItem] = []
+        for row in rows:
+            duration_minutes = None
+            if row["check_in_time"] and row["check_out_time"]:
+                duration_minutes = int((row["check_out_time"] - row["check_in_time"]).total_seconds() / 60)
+            caregiver = caregivers.get(row["caregiver_id"])
+            caregiver_full_name = None
+            if caregiver:
+                caregiver_full_name = self._format_full_name(caregiver.first_name, caregiver.last_name)
+            items.append(
+                PatientSessionItem(
+                    session_id=row["id"],
+                    caregiver_id=row["caregiver_id"],
+                    caregiver_full_name=caregiver_full_name,
+                    careplan_type=patient.careplan_type if patient else None,
+                    check_in_time=row["check_in_time"],
+                    check_out_time=row["check_out_time"],
+                    duration_minutes=duration_minutes,
+                    status=row["status"],
+                    rating=row.get("rating"),
+                    feedback_comment=row.get("feedback_comment"),
+                )
+            )
+        return PatientSessionPage(items=items, total=total, limit=limit, offset=offset)
+
+    def generate_patient_sessions_csv(self, sessions: List[PatientSessionItem]) -> BytesIO:
+        """Generate CSV file from patient session history."""
+        data = []
+        for session in sessions:
+            data.append({
+                "Session ID": str(session.session_id),
+                "Caregiver ID": str(session.caregiver_id),
+                "Caregiver Name": session.caregiver_full_name or "",
+                "Careplan Type": session.careplan_type or "",
+                "Check In Time": session.check_in_time.isoformat(),
+                "Check Out Time": session.check_out_time.isoformat() if session.check_out_time else "",
+                "Duration (Minutes)": session.duration_minutes if session.duration_minutes is not None else "",
+                "Status": session.status,
+                "Rating": session.rating if session.rating is not None else "",
+                "Feedback": session.feedback_comment or "",
+            })
+        df = pd.DataFrame(data)
+        buffer = BytesIO()
+        df.to_csv(buffer, index=False)
+        buffer.seek(0)
+        return buffer
+
+    def generate_patient_sessions_pdf(self, sessions: List[PatientSessionItem], title: str) -> BytesIO:
+        """Generate PDF file from patient session history."""
+        buffer = BytesIO()
+        c = canvas.Canvas(buffer, pagesize=letter)
+        width, height = letter
+        line_x1 = 50
+        line_x2 = width - 50
+
+        c.setFont("Helvetica-Bold", 16)
+        c.drawString(100, height - 50, title)
+
+        y = height - 80
+        c.setFont("Helvetica", 10)
+
+        for session in sessions:
+            if y < 230:
+                c.showPage()
+                y = height - 50
+                c.setFont("Helvetica", 10)
+
+            c.drawString(50, y, f"Session ID: {session.session_id}")
+            c.drawString(50, y - 15, f"Caregiver: {session.caregiver_full_name or ''}")
+            c.drawString(50, y - 30, f"Careplan Type: {session.careplan_type or ''}")
+            c.drawString(50, y - 45, f"Check In: {session.check_in_time}")
+            c.drawString(50, y - 60, f"Check Out: {session.check_out_time}")
+            c.drawString(50, y - 75, f"Duration (Minutes): {session.duration_minutes if session.duration_minutes is not None else ''}")
+            c.drawString(50, y - 90, f"Status: {session.status}")
+            c.drawString(50, y - 105, f"Rating: {session.rating if session.rating is not None else ''}")
+            c.drawString(50, y - 120, f"Feedback: {session.feedback_comment or ''}")
+            c.setLineWidth(0.5)
+            c.line(line_x1, y - 135, line_x2, y - 135)
+            y -= 155
 
         c.save()
         buffer.seek(0)
