@@ -67,3 +67,11 @@ class CaregiverWeeklyMetrics(BaseModel):
     satisfaction_index: float  # 0-100 scale
     distribution: Dict[str, float]  # Percentage distribution of star ratings
     satisfaction_levels: Dict[str, int]  # Count by satisfaction level
+
+
+class PatientAverageRatingResponse(BaseModel):
+    """Patient's all-time average rating"""
+    patient_id: UUID
+    average_rating: Optional[float]
+    satisfaction_index: Optional[float]  # 0-100 scale
+    total_feedbacks: int

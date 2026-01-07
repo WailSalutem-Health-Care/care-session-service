@@ -14,6 +14,7 @@ from app.feedback.schemas import (
     DailyAverageResponse,
     DailyAverageListResponse,
     CaregiverWeeklyMetrics,
+    PatientAverageRatingResponse,
 )
 from app.feedback.models import Feedback
 from app.feedback.satisfaction import get_satisfaction_level, compute_metrics
@@ -195,4 +196,37 @@ async def get_caregiver_weekly_metrics(
         week_start=week_start.isoformat(),
         week_end=week_end.isoformat(),
         **metrics_data,
+    )
+
+
+@router.get("/analytics/patient/{patient_id}/average", response_model=PatientAverageRatingResponse)
+async def get_patient_average_rating(
+    patient_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    jwt_payload: JWTPayload = Depends(verify_token),
+):
+    """
+    Get patient's all-time average rating across all their feedback.
+
+    """
+    check_permission(jwt_payload, "feedback:read")
+    
+    service = FeedbackService(db, jwt_payload.tenant_schema)
+    
+    # Get average rating
+    avg_rating = await service.get_patient_average_rating(patient_id)
+    
+    # Get total count
+    _, total_feedbacks = await service.list_feedbacks(patient_id=patient_id, page=1, page_size=1)
+    
+    # Calculate satisfaction index
+    satisfaction_index = None
+    if avg_rating is not None:
+        satisfaction_index = calculate_satisfaction_index(avg_rating)
+    
+    return PatientAverageRatingResponse(
+        patient_id=patient_id,
+        average_rating=round(avg_rating, 2) if avg_rating is not None else None,
+        satisfaction_index=satisfaction_index,
+        total_feedbacks=total_feedbacks,
     )

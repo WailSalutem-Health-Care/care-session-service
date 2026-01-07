@@ -124,3 +124,13 @@ class FeedbackRepository:
         
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
+    
+    async def get_patient_average_rating(self, patient_id: UUID) -> Optional[float]:
+        """Get patient's all-time average rating."""
+        await self._set_search_path()
+        
+        stmt = select(func.avg(Feedback.rating)).where(Feedback.patient_id == patient_id)
+        result = await self.db.execute(stmt)
+        avg_rating = result.scalar()
+        
+        return float(avg_rating) if avg_rating is not None else None

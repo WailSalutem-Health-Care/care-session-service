@@ -136,3 +136,12 @@ class FeedbackService:
             week_start=week_start,
             week_end=week_end,
         )
+    
+    async def get_patient_average_rating(self, patient_id: UUID) -> Optional[float]:
+        """
+        Get patient's all-time average rating.
+            
+        Returns:
+            Average rating (float) or None if patient has no feedback
+        """
+        return await self.repository.get_patient_average_rating(patient_id)
