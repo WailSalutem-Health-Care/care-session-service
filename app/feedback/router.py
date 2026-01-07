@@ -15,6 +15,8 @@ from app.feedback.schemas import (
     DailyAverageListResponse,
     CaregiverWeeklyMetrics,
     PatientAverageRatingResponse,
+    TopCaregiversResponse,
+    TopCaregiverItem,
 )
 from app.feedback.models import Feedback
 from app.feedback.satisfaction import get_satisfaction_level, compute_metrics
@@ -123,6 +125,7 @@ async def list_feedbacks(
     
     return FeedbackListResponse(
         feedbacks=[to_response(feedback) for feedback in feedbacks],
+        count=len(feedbacks),
         total=total,
         page=page,
         page_size=page_size,
@@ -165,6 +168,7 @@ async def get_daily_averages(
     
     return DailyAverageListResponse(
         daily_averages=daily_responses,
+        count=len(daily_responses),
         overall_metrics=overall_metrics,
     )
 
@@ -229,4 +233,40 @@ async def get_patient_average_rating(
         average_rating=round(avg_rating, 2) if avg_rating is not None else None,
         satisfaction_index=satisfaction_index,
         total_feedbacks=total_feedbacks,
+    )
+
+
+@router.get("/analytics/top-caregivers/weekly", response_model=TopCaregiversResponse)
+async def get_top_caregivers_of_week(
+    week_start: date = Query(..., description="Start of week - Monday (YYYY-MM-DD)"),
+    db: AsyncSession = Depends(get_db),
+    jwt_payload: JWTPayload = Depends(verify_token),
+):
+    """
+    Get top 3 caregivers of the week based on average feedback rating.
+    
+    """
+    check_permission(jwt_payload, "feedback:read")
+    
+    week_end = week_start + timedelta(days=6)
+    service = FeedbackService(db, jwt_payload.tenant_schema)
+    
+    top_caregivers_data = await service.get_top_caregivers_of_week(week_start, week_end)
+    
+    # Build response with rankings
+    top_caregivers = [
+        TopCaregiverItem(
+            caregiver_id=caregiver['caregiver_id'],
+            average_rating=round(caregiver['average_rating'], 2),
+            satisfaction_index=calculate_satisfaction_index(caregiver['average_rating']),
+            total_feedbacks=caregiver['total_feedbacks'],
+            rank=idx + 1,
+        )
+        for idx, caregiver in enumerate(top_caregivers_data)
+    ]
+    
+    return TopCaregiversResponse(
+        week_start=week_start.isoformat(),
+        week_end=week_end.isoformat(),
+        top_caregivers=top_caregivers,
     )
