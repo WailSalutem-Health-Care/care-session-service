@@ -10,14 +10,19 @@ from app.reports.schemas import (
     CareSessionReportItem,
     CaregiverListItem,
     CaregiverPerformanceItem,
+    PatientListItem,
+    PatientSummary,
+    PatientSessionPage,
+    FeedbackReportPage,
+    FeedbackReportSummary,
 )
-from app.care_sessions.repository import CareSessionRepository
+from app.reports.repository import ReportsRepository
 from app.auth.middleware import JWTPayload, verify_token, check_permission
 
 
 def get_reports_service(db: AsyncSession = Depends(get_db), jwt_payload: JWTPayload = Depends(verify_token)) -> ReportsService:
     """Dependency to get ReportsService"""
-    repository = CareSessionRepository(db, jwt_payload.tenant_schema)
+    repository = ReportsRepository(db, jwt_payload.tenant_schema)
     return ReportsService(repository)
 
 
@@ -241,10 +246,150 @@ async def download_caregiver_report(
         raise HTTPException(status_code=400, detail="Invalid format")
 
 
-# TODO: feedback endpoints (table: feedbak) will be implemented when available.
-# @router.get("/caregivers/{caregiver_id}/feedback", response_model=list[...])
-# async def list_caregiver_feedback(...):
-#     ...
-# @router.get("/caregivers/{caregiver_id}/feedback/download")
-# async def download_caregiver_feedback(...):
-#     ...
+@router.get("/patients", response_model=list[PatientListItem])
+async def list_patients(
+    limit: int = Query(100, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+    service: ReportsService = Depends(get_reports_service),
+    jwt_payload: JWTPayload = Depends(verify_token),
+):
+    """List patients for selector dropdowns."""
+    check_permission(jwt_payload, "care-session:report")
+    return await service.get_patient_list(limit, offset)
+
+
+@router.get("/patients/{patient_id}/summary", response_model=PatientSummary)
+async def get_patient_summary(
+    patient_id: UUID,
+    service: ReportsService = Depends(get_reports_service),
+    jwt_payload: JWTPayload = Depends(verify_token),
+):
+    """Get patient summary metrics."""
+    check_permission(jwt_payload, "care-session:report")
+    return await service.get_patient_summary(patient_id)
+
+
+@router.get("/patients/{patient_id}/sessions", response_model=PatientSessionPage)
+async def list_patient_sessions(
+    patient_id: UUID,
+    limit: int = Query(100, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+    start_date: datetime | None = Query(None),
+    end_date: datetime | None = Query(None),
+    service: ReportsService = Depends(get_reports_service),
+    jwt_payload: JWTPayload = Depends(verify_token),
+):
+    """List patient session history."""
+    check_permission(jwt_payload, "care-session:report")
+    return await service.get_patient_sessions(patient_id, limit, offset, start_date, end_date)
+
+
+@router.get("/patients/{patient_id}/download")
+async def download_patient_report(
+    patient_id: UUID,
+    format: str = Query("json", enum=["json", "csv", "pdf"]),
+    start_date: datetime | None = Query(None),
+    end_date: datetime | None = Query(None),
+    service: ReportsService = Depends(get_reports_service),
+    jwt_payload: JWTPayload = Depends(verify_token),
+):
+    """Download patient session history report."""
+    check_permission(jwt_payload, "care-session:report")
+    page = await service.get_patient_sessions(patient_id, limit=10000, offset=0, start_date=start_date, end_date=end_date)
+
+    if format == "csv":
+        csv_buffer = service.generate_patient_sessions_csv(page.items)
+        return StreamingResponse(csv_buffer, media_type="text/csv", headers={"Content-Disposition": f"attachment; filename=patient_{patient_id}.csv"})
+    elif format == "pdf":
+        pdf_buffer = service.generate_patient_sessions_pdf(page.items, f"Patient Report - {patient_id}")
+        return StreamingResponse(pdf_buffer, media_type="application/pdf", headers={"Content-Disposition": f"attachment; filename=patient_{patient_id}.pdf"})
+    else:
+        raise HTTPException(status_code=400, detail="Invalid format")
+
+
+@router.get("/feedback", response_model=FeedbackReportPage)
+async def list_feedback_reports(
+    start_date: datetime | None = Query(None),
+    end_date: datetime | None = Query(None),
+    period: str | None = Query(None, enum=["day", "week", "month"]),
+    caregiver_id: UUID | None = Query(None),
+    patient_id: UUID | None = Query(None),
+    session_id: UUID | None = Query(None),
+    limit: int = Query(100, ge=1, le=1000),
+    cursor: str | None = Query(None),
+    service: ReportsService = Depends(get_reports_service),
+    jwt_payload: JWTPayload = Depends(verify_token),
+):
+    """List feedback reports with filters."""
+    check_permission(jwt_payload, "care-session:report")
+    if period:
+        try:
+            start_date, end_date = _resolve_period_range(period)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid period")
+    try:
+        return await service.get_feedback_report(
+            limit=limit,
+            cursor=cursor,
+            start_date=start_date,
+            end_date=end_date,
+            caregiver_id=caregiver_id,
+            patient_id=patient_id,
+            session_id=session_id,
+        )
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid cursor")
+
+
+@router.get("/feedback/summary", response_model=FeedbackReportSummary)
+async def feedback_summary(
+    start_date: datetime | None = Query(None),
+    end_date: datetime | None = Query(None),
+    period: str | None = Query(None, enum=["day", "week", "month"]),
+    service: ReportsService = Depends(get_reports_service),
+    jwt_payload: JWTPayload = Depends(verify_token),
+):
+    """Feedback summary metrics."""
+    check_permission(jwt_payload, "care-session:report")
+    if period:
+        try:
+            start_date, end_date = _resolve_period_range(period)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid period")
+    return await service.get_feedback_summary(start_date, end_date)
+
+
+@router.get("/feedback/download")
+async def download_feedback_report(
+    start_date: datetime | None = Query(None),
+    end_date: datetime | None = Query(None),
+    period: str | None = Query(None, enum=["day", "week", "month"]),
+    format: str = Query("json", enum=["json", "csv", "pdf"]),
+    service: ReportsService = Depends(get_reports_service),
+    jwt_payload: JWTPayload = Depends(verify_token),
+):
+    """Download feedback report."""
+    check_permission(jwt_payload, "care-session:report")
+    if period:
+        try:
+            start_date, end_date = _resolve_period_range(period)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid period")
+    page = await service.get_feedback_report(
+        limit=10000,
+        cursor=None,
+        start_date=start_date,
+        end_date=end_date,
+        caregiver_id=None,
+        patient_id=None,
+        session_id=None,
+    )
+
+    if format == "csv":
+        csv_buffer = service.generate_feedback_csv(page.items)
+        return StreamingResponse(csv_buffer, media_type="text/csv", headers={"Content-Disposition": "attachment; filename=feedback_report.csv"})
+    elif format == "pdf":
+        pdf_buffer = service.generate_feedback_pdf(page.items, "Feedback Report")
+        return StreamingResponse(pdf_buffer, media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=feedback_report.pdf"})
+    else:
+        raise HTTPException(status_code=400, detail="Invalid format")
