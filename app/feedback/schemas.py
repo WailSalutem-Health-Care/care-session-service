@@ -1,14 +1,15 @@
 """Feedback Pydantic schemas"""
 from uuid import UUID
 from datetime import datetime
-from typing import List, Dict
+from typing import List, Dict, Optional
 from pydantic import BaseModel, Field
 
 
 class CreateFeedbackRequest(BaseModel):
     """Request to create feedback for a care session"""
     care_session_id: UUID
-    rating: int = Field(..., ge=1, le=5, description="Rating from 1 to 5 stars")
+    rating: int = Field(..., ge=1, le=3, description="Rating: 1=Dissatisfied, 2=Neutral, 3=Satisfied")
+    patient_feedback: Optional[str] = Field(None, description="Optional text feedback from patient")
 
 
 class FeedbackResponse(BaseModel):
@@ -18,7 +19,8 @@ class FeedbackResponse(BaseModel):
     patient_id: UUID
     caregiver_id: UUID
     rating: int
-    satisfaction_level: str  # VERY_DISSATISFIED, DISSATISFIED, NEUTRAL, SATISFIED, VERY_SATISFIED
+    patient_feedback: Optional[str]
+    satisfaction_level: str  # DISSATISFIED, NEUTRAL, SATISFIED
     created_at: datetime
 
 
@@ -65,3 +67,11 @@ class CaregiverWeeklyMetrics(BaseModel):
     satisfaction_index: float  # 0-100 scale
     distribution: Dict[str, float]  # Percentage distribution of star ratings
     satisfaction_levels: Dict[str, int]  # Count by satisfaction level
+
+
+class PatientAverageRatingResponse(BaseModel):
+    """Patient's all-time average rating"""
+    patient_id: UUID
+    average_rating: Optional[float]
+    satisfaction_index: Optional[float]  # 0-100 scale
+    total_feedbacks: int
