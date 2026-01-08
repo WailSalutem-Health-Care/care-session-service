@@ -12,7 +12,7 @@ from app.care_sessions.schemas import (
     CompleteCareSessionRequest,
     UpdateCareSessionRequest,
 )
-from app.care_sessions.models import CareSession
+from app.db.models import CareSession
 from app.auth.middleware import JWTPayload, verify_token, check_permission
 
 router = APIRouter(

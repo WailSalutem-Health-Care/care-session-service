@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Optional, Tuple, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from app.care_sessions.models import CareSession
+from app.db.models import CareSession
 from app.care_sessions.repository import CareSessionRepository
 from app.care_sessions.validators import SessionValidator
 from app.care_sessions.exceptions import (

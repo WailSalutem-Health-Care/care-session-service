@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Optional, List, Tuple, Dict
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, or_, text, func
-from app.care_sessions.models import CareSession
+from app.db.models import CareSession
 from app.db.models import Patient, User
 
 
