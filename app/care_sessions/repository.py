@@ -1,10 +1,11 @@
 """Care Session Repository Layer"""
 from uuid import UUID
 from datetime import datetime
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Dict
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, text, func
+from sqlalchemy import select, and_, or_, text, func
 from app.care_sessions.models import CareSession
+from app.db.models import Patient, User
 
 
 class CareSessionRepository:
@@ -108,6 +109,92 @@ class CareSessionRepository:
             return True
         return False
     
+    async def get_sessions_in_period(
+        self,
+        start_date: datetime,
+        end_date: datetime,
+        limit: int | None = 100,
+        offset: int | None = 0,
+        cursor_time: datetime | None = None,
+        cursor_id: UUID | None = None,
+    ) -> List[CareSession]:
+        """Get care sessions within a date range"""
+        await self._set_search_path()
+        stmt = select(CareSession).where(
+            and_(
+                CareSession.check_in_time >= start_date,
+                CareSession.check_in_time <= end_date,
+                CareSession.deleted_at.is_(None)
+            )
+        )
+        if cursor_time is not None and cursor_id is not None:
+            stmt = stmt.where(
+                or_(
+                    CareSession.check_in_time < cursor_time,
+                    and_(
+                        CareSession.check_in_time == cursor_time,
+                        CareSession.id < cursor_id,
+                    ),
+                )
+            )
+        stmt = stmt.order_by(CareSession.check_in_time.desc(), CareSession.id.desc())
+        if limit is not None:
+            stmt = stmt.limit(limit)
+        if offset is not None:
+            stmt = stmt.offset(offset)
+        result = await self.db.execute(stmt)
+        return result.scalars().all()
+    
+    async def get_all_sessions(
+        self,
+        limit: int | None = 100,
+        offset: int | None = 0,
+        cursor_time: datetime | None = None,
+        cursor_id: UUID | None = None,
+    ) -> List[CareSession]:
+        """Get all care sessions"""
+        await self._set_search_path()
+        stmt = select(CareSession).where(
+            CareSession.deleted_at.is_(None)
+        )
+        if cursor_time is not None and cursor_id is not None:
+            stmt = stmt.where(
+                or_(
+                    CareSession.created_at < cursor_time,
+                    and_(
+                        CareSession.created_at == cursor_time,
+                        CareSession.id < cursor_id,
+                    ),
+                )
+            )
+        stmt = stmt.order_by(CareSession.created_at.desc(), CareSession.id.desc())
+        if limit is not None:
+            stmt = stmt.limit(limit)
+        if offset is not None:
+            stmt = stmt.offset(offset)
+        result = await self.db.execute(stmt)
+        return result.scalars().all()
+
+    async def get_patients_by_ids(self, patient_ids: List[UUID]) -> Dict[UUID, Patient]:
+        """Fetch patients by IDs from the tenant cache."""
+        if not patient_ids:
+            return {}
+        await self._set_search_path()
+        stmt = select(Patient).where(Patient.id.in_(patient_ids))
+        result = await self.db.execute(stmt)
+        patients = result.scalars().all()
+        return {patient.id: patient for patient in patients}
+
+    async def get_users_by_ids(self, user_ids: List[UUID]) -> Dict[UUID, User]:
+        """Fetch users by IDs from the tenant cache."""
+        if not user_ids:
+            return {}
+        await self._set_search_path()
+        stmt = select(User).where(User.id.in_(user_ids))
+        result = await self.db.execute(stmt)
+        users = result.scalars().all()
+        return {user.id: user for user in users}
+
     async def list_sessions(
         self,
         caregiver_id: Optional[UUID] = None,

@@ -10,3 +10,4 @@ sqlalchemy[asyncio]
 pydantic-settings
 requests
 pyyaml
+reportlab

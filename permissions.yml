@@ -5,6 +5,8 @@ roles:
     - organization:view
     - care-session:read
     - care-session:admin
+    - feedback:read
+    - feedback:delete
 
   ORG_ADMIN:
     - organization:view
@@ -13,6 +15,8 @@ roles:
     - care-session:read
     - care-session:report
     - care-session:admin
+    - feedback:read
+    - feedback:delete
 
   CAREGIVER:
     - nfc:check-in
@@ -23,6 +27,9 @@ roles:
 
   PATIENT:
     - care-session:read
+    - feedback:create
+    - feedback:read
+    - feedback:delete
 
   MUNICIPALITY:
     - care-session:report

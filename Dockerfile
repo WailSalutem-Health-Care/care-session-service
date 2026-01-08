@@ -2,6 +2,7 @@ FROM python:3.12-slim
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+COPY permissions.yml .
 COPY app app
 COPY permissions.yml .
 COPY start_consumer.py .
