@@ -10,6 +10,7 @@ class CareSession(Base):
     __tablename__ = "care_sessions"
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    session_id = Column(String(50), unique=True, nullable=False, index=True, default=lambda: str(uuid4()))
     patient_id = Column(UUID(as_uuid=True), nullable=False, index=True)
     caregiver_id = Column(UUID(as_uuid=True), nullable=False, index=True)
     check_in_time = Column(DateTime, default=datetime.utcnow, nullable=False)

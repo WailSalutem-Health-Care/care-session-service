@@ -24,6 +24,7 @@ router = APIRouter(
 def to_response(session: CareSession) -> CareSessionResponse:
     """Convert CareSession model to response schema."""
     return CareSessionResponse(
+        session_id=session.session_id,
         id=session.id,
         patient_id=session.patient_id,
         caregiver_id=session.caregiver_id,
@@ -58,6 +59,7 @@ async def create_care_session(
     session = await service.create_session(
         tag_id=request.tag_id,
         caregiver_id=jwt_payload.user_id,
+        session_id=request.session_id,
     )
     
     return to_response(session)
@@ -65,7 +67,7 @@ async def create_care_session(
 
 @router.get("/{session_id}", response_model=CareSessionResponse)
 async def get_care_session(
-    session_id: UUID,
+    session_id: str,
     db: AsyncSession = Depends(get_db),
     jwt_payload: JWTPayload = Depends(verify_token),
 ):
@@ -84,7 +86,7 @@ async def get_care_session(
 
 @router.put("/{session_id}/complete", response_model=CareSessionResponse)
 async def complete_care_session(
-    session_id: UUID,
+    session_id: str,
     request: CompleteCareSessionRequest,
     db: AsyncSession = Depends(get_db),
     jwt_payload: JWTPayload = Depends(verify_token),
@@ -150,7 +152,7 @@ async def list_care_sessions(
 
 @router.patch("/{session_id}", response_model=CareSessionResponse)
 async def update_care_session(
-    session_id: UUID,
+    session_id: str,
     request: UpdateCareSessionRequest,
     db: AsyncSession = Depends(get_db),
     jwt_payload: JWTPayload = Depends(verify_token),

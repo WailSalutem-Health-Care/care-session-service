@@ -21,10 +21,37 @@ class CareSessionRepository:
     async def create(self, session: CareSession) -> CareSession:
         """Create a new care session"""
         await self._set_search_path()
+
+        if not getattr(session, "session_id", None):
+            seq_name = "care_session_id_seq"
+            try:
+                res = await self.db.execute(text(f"SELECT nextval('{seq_name}') AS val"))
+                val = res.scalar_one()
+            except Exception:
+                await self.db.execute(text(f"CREATE SEQUENCE IF NOT EXISTS {seq_name} START 1"))
+                max_res = await self.db.execute(
+                    text(
+                        "SELECT COALESCE(MAX((regexp_replace(session_id, '\\D','','g'))::bigint), 0) FROM care_sessions"
+                    )
+                )
+                maxv = max_res.scalar() or 0
+                await self.db.execute(text(f"SELECT setval('{seq_name}', :start, false)").bindparams(start=maxv + 1))
+                res = await self.db.execute(text(f"SELECT nextval('{seq_name}') AS val"))
+                val = res.scalar_one()
+
+            session.session_id = f"CS-{int(val):04d}"
+
         self.db.add(session)
         await self.db.commit()
         await self.db.refresh(session)
         return session
+
+    async def get_by_session_id(self, session_id: str) -> Optional[CareSession]:
+        """Get care session by public session_id string"""
+        await self._set_search_path()
+        stmt = select(CareSession).where(CareSession.session_id == session_id)
+        result = await self.db.execute(stmt)
+        return result.scalar_one_or_none()
     
     async def get_by_id(self, session_id: UUID) -> Optional[CareSession]:
         """Get care session by ID"""
