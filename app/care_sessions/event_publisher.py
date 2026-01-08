@@ -1,5 +1,5 @@
 """Event publishing for care sessions"""
-from app.care_sessions.models import CareSession
+from app.db.models import CareSession
 from app.messaging.rabbitmq import publish_care_session_event
 
 
