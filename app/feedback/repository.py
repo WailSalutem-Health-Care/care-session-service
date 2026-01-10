@@ -4,7 +4,7 @@ from typing import Optional, Tuple, List, Dict
 from datetime import date, datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, text, func, and_, cast, Date
-from app.feedback.models import Feedback
+from app.db.models import Feedback
 
 
 class FeedbackRepository:

@@ -1,7 +1,7 @@
 """Satisfaction semantics and metrics computation"""
 from enum import Enum
 from typing import List, Dict
-from app.feedback.models import Feedback
+from app.db.models import Feedback
 
 
 class SatisfactionLevel(str, Enum):

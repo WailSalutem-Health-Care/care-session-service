@@ -6,7 +6,8 @@ from pydantic import BaseModel, Field
 
 class CreateCareSessionRequest(BaseModel):
     """Request to create a new care session"""
-    tag_id: str 
+    tag_id: str
+    session_id: Optional[str] = None
 
 
 class CompleteCareSessionRequest(BaseModel):
@@ -25,6 +26,7 @@ class UpdateCareSessionRequest(BaseModel):
 class CareSessionResponse(BaseModel):
     """Care session response"""
     id: UUID
+    session_id: str
     patient_id: UUID
     caregiver_id: UUID
     check_in_time: datetime

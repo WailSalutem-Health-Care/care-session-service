@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Optional, Tuple, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from app.care_sessions.models import CareSession
+from app.db.models import CareSession
 from app.care_sessions.repository import CareSessionRepository
 from app.care_sessions.validators import SessionValidator
 from app.care_sessions.exceptions import (
@@ -21,9 +21,20 @@ class CareSessionService:
         self.repository = CareSessionRepository(db, tenant_schema)
         self.validator = SessionValidator(db, self.repository)
     
-    async def _get_session_or_404(self, session_id: UUID) -> CareSession:
-        """Get session by ID or raise 404"""
-        session = await self.repository.get_by_id(session_id)
+    async def _get_session_or_404(self, session_id: UUID | str) -> CareSession:
+        """Get session by primary ID (UUID) or by public session_id (string) or raise 404"""
+        session = None
+        # Try by primary UUID id first
+        try:
+            if isinstance(session_id, str):
+                # attempt to fetch by public session_id string
+                session = await self.repository.get_by_session_id(session_id)
+            else:
+                session = await self.repository.get_by_id(session_id)
+        except Exception:
+            # fallback: if session_id is UUID-like string, repository.get_by_id expects UUID
+            session = await self.repository.get_by_session_id(str(session_id))
+
         if not session:
             raise CareSessionNotFoundException(session_id)
         return session
@@ -32,6 +43,7 @@ class CareSessionService:
         self,
         tag_id: str,
         caregiver_id: UUID,
+        session_id: str | None = None,
     ) -> CareSession:
         """
         Create a new care session by scanning an NFC tag.
@@ -55,15 +67,18 @@ class CareSessionService:
             caregiver_id=caregiver_id,
             status="in_progress",
         )
+        # Only set public session_id if provided; otherwise let the model/DB default generate it
+        if session_id:
+            new_session.session_id = session_id
         
         created_session = await self.repository.create(new_session)
         return created_session
     
-    async def get_session(self, session_id: UUID) -> CareSession:
-        """Get a care session by ID"""
+    async def get_session(self, session_id: UUID | str) -> CareSession:
+        """Get a care session by primary ID or public session_id"""
         return await self._get_session_or_404(session_id)
     
-    async def get_patient_with_session(self, session_id: UUID) -> dict:
+    async def get_patient_with_session(self, session_id: UUID | str) -> dict:
         """Get patient details for a care session"""
         session = await self._get_session_or_404(session_id)
         
@@ -77,7 +92,7 @@ class CareSessionService:
 
     async def complete_session(
         self,
-        session_id: UUID,
+        session_id: UUID | str,
         caregiver_notes: str,
         caregiver_id: UUID,
     ) -> CareSession:
@@ -106,7 +121,7 @@ class CareSessionService:
 
     async def update_session(
         self,
-        session_id: UUID,
+        session_id: UUID | str,
         check_in_time: datetime | None = None,
         check_out_time: datetime | None = None,
         caregiver_notes: str | None = None,

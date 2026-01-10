@@ -26,7 +26,7 @@ from app.feedback.schemas import (
     CaregiverFeedbackItem,
     CaregiverFeedbackPage,
 )
-from app.feedback.models import Feedback
+from app.db.models import Feedback
 from app.feedback.satisfaction import get_satisfaction_level, compute_metrics
 from app.auth.middleware import JWTPayload, verify_token, check_permission
 from app.db.models import Patient, User
