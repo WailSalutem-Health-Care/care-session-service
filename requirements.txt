@@ -1,6 +1,13 @@
 fastapi
 uvicorn
 psycopg[binary]
+asyncpg
 pika
 python-dotenv
 pandas
+python-jose[cryptography]
+sqlalchemy[asyncio]
+pydantic-settings
+requests
+pyyaml
+reportlab

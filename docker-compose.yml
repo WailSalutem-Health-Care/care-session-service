@@ -8,3 +8,37 @@ services:
       - .env
     ports:
       - "8002:8000"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  care-session-consumer:
+    build: .
+    container_name: care-session-consumer
+    env_file:
+      - .env
+    command: ["python", "start_consumer.py"]
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+    volumes:
+      - ./app:/app/app
+      - ./start_consumer.py:/app/start_consumer.py
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s

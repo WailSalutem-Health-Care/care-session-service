@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+name: care-session-service
+namespace: wailsalutem-suite
+spec:
+replicas: 1
+selector:
+matchLabels:
+app: care-session-service
+template:
+metadata:
+labels:
+app: care-session-service
+spec:
+containers:
+-- name: care-session-service
+image: care-session-service:latest
+ports:
+- containerPort: 8000
+envFrom:
+- configMapRef:
+- secretRef:
+name: wailsalutem-backend-config
+name: wailsalutem-backend-secrets
