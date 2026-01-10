@@ -1,5 +1,10 @@
 from dotenv import load_dotenv
-load_dotenv()
+import os
+
+# Only load .env file in development (when running locally)
+# In production (K8s), environment variables come from ConfigMap/Secrets
+if os.path.exists('.env'):
+    load_dotenv()
 
 from fastapi import FastAPI
 import logging
