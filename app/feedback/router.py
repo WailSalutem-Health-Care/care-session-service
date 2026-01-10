@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text, select
 from app.db.postgres import get_db
 from app.feedback.service import FeedbackService
+from fastapi import Response
 from app.feedback.schemas import (
     CreateFeedbackRequest, 
     FeedbackResponse, 
@@ -280,6 +281,7 @@ async def get_top_caregivers_of_week(
         top_caregivers=top_caregivers,
     )
 
+
 def _format_full_name(first_name: Optional[str], last_name: Optional[str]) -> str:
     return " ".join([name for name in [first_name, last_name] if name])
 
@@ -459,4 +461,21 @@ async def download_caregiver_feedback(
         return StreamingResponse(pdf_buffer, media_type="application/pdf", headers={"Content-Disposition": f"attachment; filename=caregiver_{caregiver_id}_feedback.pdf"})
     else:
         raise HTTPException(status_code=400, detail="Invalid format")
+
+
+@router.delete("/delete/{feedback_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_feedback(
+    feedback_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    jwt_payload: JWTPayload = Depends(verify_token),
+):
+    """
+    Delete a feedback. 
+    """
+    check_permission(jwt_payload, "feedback:delete")
+
+    service = FeedbackService(db, jwt_payload.tenant_schema)
+    
+    await service.delete_feedback(feedback_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 

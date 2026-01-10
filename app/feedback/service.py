@@ -155,3 +155,13 @@ class FeedbackService:
             week_end: End of week (Sunday)
         """
         return await self.repository.get_top_caregivers_of_week(week_start, week_end, limit=3)
+
+    async def delete_feedback(self, feedback_id: UUID) -> None:
+        """
+        Delete feedback by id.
+        """
+        feedback = await self.repository.get_by_id(feedback_id)
+        if not feedback:
+            raise FeedbackNotFoundException(feedback_id)
+
+        await self.repository.delete(feedback)
