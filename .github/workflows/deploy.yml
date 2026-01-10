@@ -1,0 +1,30 @@
+name: Deploy care-session-service
+on:
+  push:
+    branches: [main]
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install oc
+        run: |
+          curl -LO https://mirror.openshift.com/pub/openshift-v4/clients/oc/latest/linux/oc.tar.gz
+          tar -xzf oc.tar.gz
+          sudo mv oc /usr/local/bin/oc
+
+      - name: Login to OpenShift
+        run: |
+          oc login $OPENSHIFT_SERVER
+          --token=$OPENSHIFT_TOKEN
+          --insecure-skip-tls-verify=true
+        env:
+          OPENSHIFT_SERVER: ${{ secrets.OPENSHIFT_SERVER }}
+          OPENSHIFT_TOKEN: ${{ secrets.OPENSHIFT_TOKEN }}
+
+      - name: Select project
+        run: oc project ${{ secrets.OPENSHIFT_NAMESPACE }}
+
+      - name: Trigger build
+        run: oc start-build care-session-service --follow

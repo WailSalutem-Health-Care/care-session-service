@@ -1,0 +1,13 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+name: care-session-service
+namespace: wailsalutem-suite
+spec:
+to:
+kind: Service
+name: care-session-service
+port:
+tls:
+targetPort: 80
+termination: edge
