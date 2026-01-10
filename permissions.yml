@@ -29,7 +29,6 @@ roles:
     - care-session:read
     - feedback:create
     - feedback:read
-    - feedback:delete
 
   MUNICIPALITY:
     - care-session:report

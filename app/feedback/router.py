@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.postgres import get_db
 from app.feedback.service import FeedbackService
+from fastapi import Response
 from app.feedback.schemas import (
     CreateFeedbackRequest, 
     FeedbackResponse, 
@@ -270,3 +271,19 @@ async def get_top_caregivers_of_week(
         week_end=week_end.isoformat(),
         top_caregivers=top_caregivers,
     )
+
+@router.delete("/delete/{feedback_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_feedback(
+    feedback_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    jwt_payload: JWTPayload = Depends(verify_token),
+):
+    """
+    Delete a feedback. 
+    """
+    check_permission(jwt_payload, "feedback:delete")
+
+    service = FeedbackService(db, jwt_payload.tenant_schema)
+    
+    await service.delete_feedback(feedback_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
