@@ -57,7 +57,8 @@ jobs:
         run: |
           oc start-build care-session-service --follow
 
-      - name: Force rollout restart (only if k8s changed)
-        if: steps.changes.outputs.k8s_changed == 'true'
+      - name: Rollout deployment (if code or k8s changed)
+        if: steps.changes.outputs.code_changed == 'true' || steps.changes.outputs.k8s_changed == 'true'
         run: |
           oc rollout restart deployment/care-session-service
+          oc rollout status deployment/care-session-service --timeout=5m

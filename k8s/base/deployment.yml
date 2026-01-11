@@ -16,6 +16,7 @@ spec:
       containers:
         - name: care-session-service
           image: image-registry.openshift-image-registry.svc:5000/wailsalutem-suite/care-session-service:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 8000
           envFrom:

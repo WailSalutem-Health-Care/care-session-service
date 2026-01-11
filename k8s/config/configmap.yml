@@ -15,3 +15,4 @@ data:
   KEYCLOAK_REALM: wailsalutem
   KEYCLOAK_API_CLIENT_ID: wailsalutem-api
   KEYCLOAK_ADMIN_CLIENT_ID: wailsalutem-admin
+  JWT_ALGORITHM: RS256
