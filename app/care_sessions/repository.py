@@ -29,7 +29,14 @@ class CareSessionRepository:
                 res = await self.db.execute(text(f"SELECT nextval('{seq_name}') AS val"))
                 val = res.scalar_one()
             except Exception:
+                # Rollback the failed transaction before creating sequence
+                await self.db.rollback()
+                await self._set_search_path()
+                
+                # Create sequence if it doesn't exist
                 await self.db.execute(text(f"CREATE SEQUENCE IF NOT EXISTS {seq_name} START 1"))
+                
+                # Get max session ID and set sequence value
                 max_res = await self.db.execute(
                     text(
                         "SELECT COALESCE(MAX((regexp_replace(session_id, '\\D','','g'))::bigint), 0) FROM care_sessions"
@@ -37,6 +44,8 @@ class CareSessionRepository:
                 )
                 maxv = max_res.scalar() or 0
                 await self.db.execute(text(f"SELECT setval('{seq_name}', :start, false)").bindparams(start=maxv + 1))
+                
+                # Now get the next value
                 res = await self.db.execute(text(f"SELECT nextval('{seq_name}') AS val"))
                 val = res.scalar_one()
 
