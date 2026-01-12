@@ -1,6 +1,6 @@
 from datetime import datetime
 from uuid import uuid4
-from sqlalchemy import Column, String, DateTime, Text, Boolean, Date
+from sqlalchemy import Column, String, DateTime, Text, Boolean, Date, Integer, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from app.db.postgres import Base
 
@@ -90,4 +90,22 @@ class User(Base):
     is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime, nullable=False)
     updated_at = Column(DateTime, nullable=False)
+    deleted_at = Column(DateTime, nullable=True)
+
+
+class Feedback(Base):
+    """
+    Feedback table - owned by care-session-service.
+    Stores patient feedback for care sessions.
+    """
+    __tablename__ = "feedback"
+    __table_args__ = {'extend_existing': True}
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    care_session_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    patient_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    caregiver_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    rating = Column(Integer, nullable=False)  # 1=Dissatisfied, 2=Neutral, 3=Satisfied
+    patient_feedback = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     deleted_at = Column(DateTime, nullable=True)
