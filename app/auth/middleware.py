@@ -19,7 +19,7 @@ security = HTTPBearer()
 jwt_verifier = JWTVerifier(
     keycloak_url=os.getenv("KEYCLOAK_BASE_URL"),
     realm=os.getenv("KEYCLOAK_REALM"),
-    algorithm=os.getenv("JWT_ALGORITHM", "RS256")  # Default to RS256 if not set
+    algorithm=os.getenv("JWT_ALGORITHM", "RS256")  
 )
 permissions_manager = PermissionsManager()
 
