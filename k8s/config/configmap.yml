@@ -16,3 +16,5 @@ data:
   KEYCLOAK_API_CLIENT_ID: wailsalutem-api
   KEYCLOAK_ADMIN_CLIENT_ID: wailsalutem-admin
   JWT_ALGORITHM: RS256
+  
+  ALLOWED_ORIGINS: "http://localhost:3000,https://wailsalutem-web-ui.netlify.app"
