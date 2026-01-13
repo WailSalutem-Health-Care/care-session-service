@@ -112,3 +112,24 @@ class FeedbackReportSummary(BaseModel):
     total_feedback: int
     avg_rating: Optional[float] = None
     positive_feedback: int
+
+
+class CaregiverFeedbackItem(BaseModel):
+    """Feedback item for caregiver reports."""
+    id: UUID
+    caregiver_id: UUID
+    caregiver_full_name: Optional[str] = None
+    patient_id: UUID
+    patient_full_name: Optional[str] = None
+    rating: int
+    comment: Optional[str] = None
+    session_date: datetime
+    feedback_date: datetime
+
+
+class CaregiverFeedbackPage(BaseModel):
+    """Paginated caregiver feedback."""
+    items: List[CaregiverFeedbackItem]
+    total: int
+    limit: int
+    offset: int
