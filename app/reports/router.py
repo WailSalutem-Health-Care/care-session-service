@@ -15,7 +15,6 @@ from app.reports.schemas import (
     PatientSessionPage,
     FeedbackReportPage,
     FeedbackReportSummary,
-    CaregiverFeedbackPage,
 )
 from app.reports.repository import ReportsRepository
 from app.auth.middleware import JWTPayload, verify_token, check_permission
@@ -392,39 +391,5 @@ async def download_feedback_report(
     elif format == "pdf":
         pdf_buffer = service.generate_feedback_pdf(page.items, "Feedback Report")
         return StreamingResponse(pdf_buffer, media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=feedback_report.pdf"})
-    else:
-        raise HTTPException(status_code=400, detail="Invalid format")
-
-
-@router.get("/caregivers/{caregiver_id}/feedback", response_model=CaregiverFeedbackPage)
-async def list_caregiver_feedback(
-    caregiver_id: UUID,
-    limit: int = Query(100, ge=1, le=1000),
-    offset: int = Query(0, ge=0),
-    service: ReportsService = Depends(get_reports_service),
-    jwt_payload: JWTPayload = Depends(verify_token),
-):
-    """List caregiver feedback for reports."""
-    check_permission(jwt_payload, "care-session:report")
-    return await service.get_caregiver_feedback(caregiver_id, limit, offset)
-
-
-@router.get("/caregivers/{caregiver_id}/feedback/download")
-async def download_caregiver_feedback(
-    caregiver_id: UUID,
-    format: str = Query("json", enum=["json", "csv", "pdf"]),
-    service: ReportsService = Depends(get_reports_service),
-    jwt_payload: JWTPayload = Depends(verify_token),
-):
-    """Download caregiver feedback report."""
-    check_permission(jwt_payload, "care-session:report")
-    page = await service.get_caregiver_feedback(caregiver_id, limit=10000, offset=0)
-
-    if format == "csv":
-        csv_buffer = service.generate_caregiver_feedback_csv(page.items)
-        return StreamingResponse(csv_buffer, media_type="text/csv", headers={"Content-Disposition": f"attachment; filename=caregiver_{caregiver_id}_feedback.csv"})
-    elif format == "pdf":
-        pdf_buffer = service.generate_caregiver_feedback_pdf(page.items, f"Caregiver Feedback - {caregiver_id}")
-        return StreamingResponse(pdf_buffer, media_type="application/pdf", headers={"Content-Disposition": f"attachment; filename=caregiver_{caregiver_id}_feedback.pdf"})
     else:
         raise HTTPException(status_code=400, detail="Invalid format")

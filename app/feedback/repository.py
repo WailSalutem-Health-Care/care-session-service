@@ -5,14 +5,18 @@ from datetime import date, datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, text, func, and_, cast, Date
 from app.feedback.models import Feedback
-from app.db.repository import BaseRepository
 
 
-class FeedbackRepository(BaseRepository):
+class FeedbackRepository:
     """Repository for feedback database operations"""
     
     def __init__(self, db: AsyncSession, tenant_schema: str):
-        super().__init__(db, tenant_schema, include_public=True)
+        self.db = db
+        self.tenant_schema = tenant_schema
+    
+    async def _set_search_path(self):
+        """Set PostgreSQL search path to tenant schema"""
+        await self.db.execute(text(f'SET search_path TO "{self.tenant_schema}", public'))
     
     async def create(self, feedback: Feedback) -> Feedback:
         """Create new feedback"""
