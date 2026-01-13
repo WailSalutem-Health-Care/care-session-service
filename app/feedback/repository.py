@@ -4,7 +4,7 @@ from typing import Optional, Tuple, List, Dict
 from datetime import date, datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, text, func, and_, cast, Date
-from app.feedback.models import Feedback
+from app.db.models import Feedback
 
 
 class FeedbackRepository:
@@ -124,3 +124,38 @@ class FeedbackRepository:
         
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
+    
+    async def get_patient_average_rating(self, patient_id: UUID) -> Optional[float]:
+        """Get patient's all-time average rating."""
+        await self._set_search_path()
+        
+        stmt = select(func.avg(Feedback.rating)).where(Feedback.patient_id == patient_id)
+        result = await self.db.execute(stmt)
+        avg_rating = result.scalar()
+        
+        return float(avg_rating) if avg_rating is not None else None
+    
+    async def get_top_caregivers_of_week(self, week_start: date, week_end: date, limit: int = 3) -> List[Dict]:
+        """Get top caregivers of the week based on average feedback rating."""
+        await self._set_search_path()
+        
+        date_col = cast(Feedback.created_at, Date)
+        stmt = select(
+            Feedback.caregiver_id,
+            func.avg(Feedback.rating).label('average_rating'),
+            func.count(Feedback.id).label('total_feedbacks')
+        ).where(
+            and_(date_col >= week_start, date_col <= week_end)
+        ).group_by(Feedback.caregiver_id).order_by(
+            func.avg(Feedback.rating).desc()
+        ).limit(limit)
+        
+        result = await self.db.execute(stmt)
+        return [
+            {
+                'caregiver_id': row.caregiver_id,
+                'average_rating': float(row.average_rating),
+                'total_feedbacks': row.total_feedbacks
+            }
+            for row in result.all()
+        ]

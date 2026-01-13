@@ -2,7 +2,7 @@
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from app.care_sessions.models import CareSession
+from app.db.models import CareSession
 from app.care_sessions.exceptions import (
     NFCTagNotFoundException,
     InvalidStatusException,

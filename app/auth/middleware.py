@@ -17,9 +17,9 @@ from app.db.models import Organization
 # Initialize components
 security = HTTPBearer()
 jwt_verifier = JWTVerifier(
-    keycloak_url=os.getenv("KEYCLOAK_URL"),
+    keycloak_url=os.getenv("KEYCLOAK_BASE_URL"),
     realm=os.getenv("KEYCLOAK_REALM"),
-    algorithm=os.getenv("JWT_ALGORITHM")
+    algorithm=os.getenv("JWT_ALGORITHM", "RS256")  
 )
 permissions_manager = PermissionsManager()
 

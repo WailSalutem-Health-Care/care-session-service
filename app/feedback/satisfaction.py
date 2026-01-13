@@ -1,34 +1,30 @@
 """Satisfaction semantics and metrics computation"""
 from enum import Enum
 from typing import List, Dict
-from app.feedback.models import Feedback
+from app.db.models import Feedback
 
 
 class SatisfactionLevel(str, Enum):
-    """Satisfaction levels based on star ratings"""
-    VERY_DISSATISFIED = "VERY_DISSATISFIED"
+    """Satisfaction levels based on ratings (1-3 scale)"""
     DISSATISFIED = "DISSATISFIED"
     NEUTRAL = "NEUTRAL"
     SATISFIED = "SATISFIED"
-    VERY_SATISFIED = "VERY_SATISFIED"
 
 
 # Rating to satisfaction level mapping
 RATING_TO_SATISFACTION = {
-    1: SatisfactionLevel.VERY_DISSATISFIED,
-    2: SatisfactionLevel.DISSATISFIED,
-    3: SatisfactionLevel.NEUTRAL,
-    4: SatisfactionLevel.SATISFIED,
-    5: SatisfactionLevel.VERY_SATISFIED,
+    1: SatisfactionLevel.DISSATISFIED,
+    2: SatisfactionLevel.NEUTRAL,
+    3: SatisfactionLevel.SATISFIED,
 }
 
 
 def get_satisfaction_level(rating: int) -> SatisfactionLevel:
     """
-    Convert star rating to satisfaction level.
+    Convert rating to satisfaction level.
     
     Args:
-        rating: Star rating (1-5)
+        rating: Rating (1-3: 1=Dissatisfied, 2=Neutral, 3=Satisfied)
         
     Returns:
         SatisfactionLevel enum
@@ -44,7 +40,7 @@ def compute_metrics(feedbacks: List[Feedback]) -> Dict:
     - average_rating: Mean of all ratings
     - satisfaction_index: Normalized score (0-100)
     - total_feedbacks: Count of feedbacks
-    - distribution: Percentage distribution of each star rating
+    - distribution: Percentage distribution of each rating (1-3)
     - satisfaction_levels: Count by satisfaction level
     
     Args:
@@ -58,9 +54,9 @@ def compute_metrics(feedbacks: List[Feedback]) -> Dict:
         "average_rating": 0.0,
         "satisfaction_index": 0.0,
         "total_feedbacks": 0,
-        "distribution": {"5_star": 0.0, "4_star": 0.0, "3_star": 0.0, "2_star": 0.0, "1_star": 0.0},
+        "distribution": {"3_satisfied": 0.0, "2_neutral": 0.0, "1_dissatisfied": 0.0},
         "satisfaction_levels": {
-            "VERY_SATISFIED": 0, "SATISFIED": 0, "NEUTRAL": 0, "DISSATISFIED": 0, "VERY_DISSATISFIED": 0
+            "SATISFIED": 0, "NEUTRAL": 0, "DISSATISFIED": 0
         }
     }
     
@@ -71,24 +67,26 @@ def compute_metrics(feedbacks: List[Feedback]) -> Dict:
     ratings = [f.rating for f in feedbacks]
     avg_rating = sum(ratings) / total
     
-    # Count ratings
-    rating_counts = {i: ratings.count(i) for i in range(1, 6)}
+    # Count ratings (1-3)
+    rating_counts = {i: ratings.count(i) for i in range(1, 4)}
     
     # Distribution (percentage)
-    distribution = {f"{i}_star": round((rating_counts[i] / total) * 100, 2) for i in range(5, 0, -1)}
+    distribution = {
+        "3_satisfied": round((rating_counts[3] / total) * 100, 2),
+        "2_neutral": round((rating_counts[2] / total) * 100, 2),
+        "1_dissatisfied": round((rating_counts[1] / total) * 100, 2),
+    }
     
-    # Satisfaction levels (matching rating to level)
+    # Satisfaction levels
     satisfaction_counts = {
-        "VERY_SATISFIED": rating_counts[5],
-        "SATISFIED": rating_counts[4],
-        "NEUTRAL": rating_counts[3],
-        "DISSATISFIED": rating_counts[2],
-        "VERY_DISSATISFIED": rating_counts[1],
+        "SATISFIED": rating_counts[3],
+        "NEUTRAL": rating_counts[2],
+        "DISSATISFIED": rating_counts[1],
     }
     
     return {
         "average_rating": round(avg_rating, 2),
-        "satisfaction_index": round((avg_rating / 5) * 100, 2),
+        "satisfaction_index": round((avg_rating / 3) * 100, 2),  # Normalized to 0-100 scale
         "total_feedbacks": total,
         "distribution": distribution,
         "satisfaction_levels": satisfaction_counts,

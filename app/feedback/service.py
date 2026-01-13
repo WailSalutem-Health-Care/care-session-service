@@ -3,7 +3,7 @@ from uuid import UUID
 from typing import Tuple, List, Optional, Dict
 from datetime import date, datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.feedback.models import Feedback
+from app.db.models import Feedback
 from app.feedback.repository import FeedbackRepository
 from app.care_sessions.repository import CareSessionRepository
 from app.feedback.exceptions import (
@@ -25,13 +25,14 @@ class FeedbackService:
         care_session_id: UUID,
         patient_id: UUID,
         rating: int,
+        patient_feedback: Optional[str] = None,
     ) -> Feedback:
         """
         Create feedback for a care session.
         
         Business rules:
         - Patient can only create one feedback per session
-        - Rating must be between 1-5
+        - Rating must be between 1-3 (1=Dissatisfied, 2=Neutral, 3=Satisfied)
         - Caregiver ID is looked up from the care session
         """
         # Check if feedback already exists for this session
@@ -50,6 +51,7 @@ class FeedbackService:
             patient_id=patient_id,
             caregiver_id=care_session.caregiver_id,
             rating=rating,
+            patient_feedback=patient_feedback,
         )
         
         return await self.repository.create(feedback)
@@ -134,3 +136,32 @@ class FeedbackService:
             week_start=week_start,
             week_end=week_end,
         )
+    
+    async def get_patient_average_rating(self, patient_id: UUID) -> Optional[float]:
+        """
+        Get patient's all-time average rating.
+            
+        Returns:
+            Average rating (float) or None if patient has no feedback
+        """
+        return await self.repository.get_patient_average_rating(patient_id)
+    
+    async def get_top_caregivers_of_week(self, week_start: date, week_end: date) -> List[Dict]:
+        """
+        Get top 3 caregivers of the week based on average feedback rating.
+        
+        Args:
+            week_start: Start of week (Monday)
+            week_end: End of week (Sunday)
+        """
+        return await self.repository.get_top_caregivers_of_week(week_start, week_end, limit=3)
+
+    async def delete_feedback(self, feedback_id: UUID) -> None:
+        """
+        Delete feedback by id.
+        """
+        feedback = await self.repository.get_by_id(feedback_id)
+        if not feedback:
+            raise FeedbackNotFoundException(feedback_id)
+
+        await self.repository.delete(feedback)

@@ -1,6 +1,6 @@
 from datetime import datetime
 from uuid import uuid4
-from sqlalchemy import Column, String, DateTime, Text, Boolean, Date
+from sqlalchemy import Column, String, DateTime, Text, Boolean, Date, Integer, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from app.db.postgres import Base
 
@@ -13,11 +13,12 @@ class CareSession(Base):
     __table_args__ = {'extend_existing': True}
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    session_id = Column(String(50), unique=True, nullable=False, index=True)
     patient_id = Column(UUID(as_uuid=True), nullable=False, index=True)
     caregiver_id = Column(UUID(as_uuid=True), nullable=False, index=True)
     check_in_time = Column(DateTime, default=datetime.utcnow, nullable=False)
     check_out_time = Column(DateTime, nullable=True)
-    status = Column(String(50), default="in_progress", nullable=False, index=True)  # in_progress | completed | cancelled
+    status = Column(String(50), default="in_progress", nullable=False, index=True) 
     caregiver_notes = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
@@ -32,7 +33,6 @@ class Organization(Base):
     __table_args__ = {'schema': 'wailsalutem'}
     
     id = Column(UUID(as_uuid=True), primary_key=True)
-    name = Column(String(255), nullable=False)
     schema_name = Column(String(100), nullable=False, unique=True)
 
 
@@ -48,10 +48,6 @@ class NFCTag(Base):
     tag_id = Column(String(255), unique=True, nullable=False, index=True)
     patient_id = Column(UUID(as_uuid=True), nullable=False, index=True)
     status = Column(String(50), nullable=False)
-    issued_at = Column(DateTime, nullable=False)
-    deactivated_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, nullable=False)
-    updated_at = Column(DateTime, nullable=False)
 
 
 class Patient(Base):
@@ -94,4 +90,22 @@ class User(Base):
     is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime, nullable=False)
     updated_at = Column(DateTime, nullable=False)
+    deleted_at = Column(DateTime, nullable=True)
+
+
+class Feedback(Base):
+    """
+    Feedback table - owned by care-session-service.
+    Stores patient feedback for care sessions.
+    """
+    __tablename__ = "feedback"
+    __table_args__ = {'extend_existing': True}
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    care_session_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    patient_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    caregiver_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    rating = Column(Integer, nullable=False)  # 1=Dissatisfied, 2=Neutral, 3=Satisfied
+    patient_feedback = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     deleted_at = Column(DateTime, nullable=True)

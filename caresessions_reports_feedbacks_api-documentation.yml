@@ -1,0 +1,1384 @@
+openapi: 3.0.3
+info:
+  title: Care Session, Reports & Feedback API
+  description: |
+    API documentation for the Care Session Service which manages care sessions, reporting & analytics, and patient feedback.
+    
+    ## Authentication
+    All endpoints (except /health) require Bearer token authentication.
+    Header: `Authorization: Bearer <your-token>`
+    
+    ## For SUPER_ADMIN
+    Add `X-Organization-ID` header to specify target organization.
+    
+    ## For ORG_ADMIN, CAREGIVER, PATIENT
+    Uses organization from token automatically. Do NOT send X-Organization-ID header.
+    
+    ## Multi-Tenant Architecture
+    Each organization has its own schema (e.g., org_alpha, org_00000000-0000-0000-0000-000000000001).
+    The middleware automatically routes requests to the correct tenant schema based on JWT token or X-Organization-ID header.
+    
+  version: 1.0.0
+  contact:
+    name: WailSalutem Health Care
+    email: support@wailsalutem.com
+
+servers:
+  - url: http://localhost:8002
+    description: Local development
+  - url: https://api.wailsalutem.com
+    description: Production
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    OrganizationID:
+      name: X-Organization-ID
+      in: header
+      required: false
+      description: Organization UUID (required for SUPER_ADMIN, forbidden for other roles)
+      schema:
+        type: string
+        format: uuid
+        example: "00000000-0000-0000-0000-000000000001"
+
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
+
+    CareSession:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        patient_id:
+          type: string
+          format: uuid
+        caregiver_id:
+          type: string
+          format: uuid
+        check_in_time:
+          type: string
+          format: date-time
+        check_out_time:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          type: string
+          enum: [in_progress, completed]
+        caregiver_notes:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateCareSessionRequest:
+      type: object
+      required:
+        - patient_id
+      properties:
+        patient_id:
+          type: string
+          format: uuid
+
+    UpdateCareSessionRequest:
+      type: object
+      properties:
+        check_in_time:
+          type: string
+          format: date-time
+          nullable: true
+        check_out_time:
+          type: string
+          format: date-time
+          nullable: true
+        caregiver_notes:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [in_progress, completed]
+          nullable: true
+
+    CompleteCareSessionRequest:
+      type: object
+      required:
+        - caregiver_notes
+      properties:
+        caregiver_notes:
+          type: string
+          example: "Patient vitals checked. Administered medications as prescribed."
+
+    CareSessionListResponse:
+      type: object
+      properties:
+        sessions:
+          type: array
+          items:
+            $ref: '#/components/schemas/CareSession'
+        total:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        total_pages:
+          type: integer
+
+    CareSessionReportItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        patient_id:
+          type: string
+          format: uuid
+        patient_full_name:
+          type: string
+          nullable: true
+        patient_email:
+          type: string
+          nullable: true
+        careplan_type:
+          type: string
+          nullable: true
+        caregiver_id:
+          type: string
+          format: uuid
+        caregiver_full_name:
+          type: string
+          nullable: true
+        caregiver_email:
+          type: string
+          nullable: true
+        check_in_time:
+          type: string
+          format: date-time
+        check_out_time:
+          type: string
+          format: date-time
+          nullable: true
+        duration_minutes:
+          type: integer
+          nullable: true
+        status:
+          type: string
+          enum: [in_progress, completed]
+        caregiver_notes:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    CareSessionReportPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CareSessionReportItem'
+        next_cursor:
+          type: string
+          nullable: true
+          description: Cursor for pagination (use in next request)
+
+    CaregiverListItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        full_name:
+          type: string
+        email:
+          type: string
+          nullable: true
+        is_active:
+          type: boolean
+
+    CaregiverPerformanceItem:
+      type: object
+      properties:
+        caregiver_id:
+          type: string
+          format: uuid
+        caregiver_full_name:
+          type: string
+        caregiver_email:
+          type: string
+          nullable: true
+        total_sessions:
+          type: integer
+        completed_sessions:
+          type: integer
+        avg_rating:
+          type: number
+          format: float
+          nullable: true
+        avg_duration_minutes:
+          type: number
+          format: float
+          nullable: true
+        status:
+          type: string
+
+    CreateFeedbackRequest:
+      type: object
+      required:
+        - care_session_id
+        - rating
+      properties:
+        care_session_id:
+          type: string
+          format: uuid
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+          description: Rating from 1 to 5 stars
+
+    FeedbackResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        care_session_id:
+          type: string
+          format: uuid
+        patient_id:
+          type: string
+          format: uuid
+        caregiver_id:
+          type: string
+          format: uuid
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        satisfaction_level:
+          type: string
+          enum: [VERY_DISSATISFIED, DISSATISFIED, NEUTRAL, SATISFIED, VERY_SATISFIED]
+          description: Computed from rating (1=VERY_DISSATISFIED, 2=DISSATISFIED, 3=NEUTRAL, 4=SATISFIED, 5=VERY_SATISFIED)
+        created_at:
+          type: string
+          format: date-time
+
+    FeedbackMetrics:
+      type: object
+      properties:
+        average_rating:
+          type: number
+          format: float
+          example: 4.3
+        satisfaction_index:
+          type: number
+          format: float
+          description: Normalized score on 0-100 scale
+          example: 86.0
+        total_feedbacks:
+          type: integer
+          example: 50
+        distribution:
+          type: object
+          description: Percentage distribution of each star rating
+          properties:
+            5_star:
+              type: number
+              format: float
+            4_star:
+              type: number
+              format: float
+            3_star:
+              type: number
+              format: float
+            2_star:
+              type: number
+              format: float
+            1_star:
+              type: number
+              format: float
+          example:
+            5_star: 40.0
+            4_star: 30.0
+            3_star: 15.0
+            2_star: 10.0
+            1_star: 5.0
+        satisfaction_levels:
+          type: object
+          description: Count by satisfaction level
+          properties:
+            VERY_SATISFIED:
+              type: integer
+            SATISFIED:
+              type: integer
+            NEUTRAL:
+              type: integer
+            DISSATISFIED:
+              type: integer
+            VERY_DISSATISFIED:
+              type: integer
+          example:
+            VERY_SATISFIED: 20
+            SATISFIED: 15
+            NEUTRAL: 8
+            DISSATISFIED: 5
+            VERY_DISSATISFIED: 2
+
+    FeedbackListResponse:
+      type: object
+      properties:
+        feedbacks:
+          type: array
+          items:
+            $ref: '#/components/schemas/FeedbackResponse'
+        total:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        total_pages:
+          type: integer
+        metrics:
+          $ref: '#/components/schemas/FeedbackMetrics'
+
+    DailyAverageResponse:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+          example: "2026-01-06"
+        average_rating:
+          type: number
+          format: float
+          example: 4.5
+        total_feedbacks:
+          type: integer
+          example: 10
+        satisfaction_index:
+          type: number
+          format: float
+          example: 90.0
+
+    DailyAverageListResponse:
+      type: object
+      properties:
+        daily_averages:
+          type: array
+          items:
+            $ref: '#/components/schemas/DailyAverageResponse'
+        overall_metrics:
+          $ref: '#/components/schemas/FeedbackMetrics'
+
+    CaregiverWeeklyMetrics:
+      type: object
+      properties:
+        caregiver_id:
+          type: string
+          format: uuid
+        week_start:
+          type: string
+          format: date
+          description: Start of week (Monday)
+          example: "2026-01-06"
+        week_end:
+          type: string
+          format: date
+          description: End of week (Sunday)
+          example: "2026-01-12"
+        average_rating:
+          type: number
+          format: float
+          example: 4.7
+        total_feedbacks:
+          type: integer
+          example: 15
+        satisfaction_index:
+          type: number
+          format: float
+          example: 94.0
+        distribution:
+          type: object
+          description: Percentage distribution of star ratings
+          example:
+            5_star: 60.0
+            4_star: 40.0
+            3_star: 0.0
+            2_star: 0.0
+            1_star: 0.0
+        satisfaction_levels:
+          type: object
+          description: Count by satisfaction level
+          example:
+            VERY_SATISFIED: 9
+            SATISFIED: 6
+            NEUTRAL: 0
+            DISSATISFIED: 0
+            VERY_DISSATISFIED: 0
+
+    ErrorResponse:
+      type: object
+      properties:
+        detail:
+          type: string
+
+paths:
+  # =============================================================================
+  # HEALTH CHECK
+  # =============================================================================
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: Check if the service is running
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  # =============================================================================
+  # CARE SESSIONS SERVICE
+  # =============================================================================
+  /care-sessions:
+    post:
+      tags:
+        - Care Sessions
+      summary: Create care session (check-in)
+      description: |
+        Caregiver checks in to start a care session with a patient.
+        
+        **Required permission:** `care_session:create` (CAREGIVER role)
+        
+        **Business rules:**
+        - Only one active session per patient at a time
+        - Caregiver ID is extracted from JWT token
+      operationId: createCareSession
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCareSessionRequest'
+      responses:
+        '201':
+          description: Care session created (checked in)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CareSession'
+        '400':
+          description: Bad request (e.g., patient already has active session)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (missing permission)
+
+    get:
+      tags:
+        - Care Sessions
+      summary: List care sessions
+      description: |
+        List care sessions based on role and filters.
+        
+        **Required permission:** `care_session:read`
+        
+        **Filtering:**
+        - Caregiver: Can filter by `caregiver_id`, `patient_id`, `status`
+        - Admin: Can see all sessions with same filters
+        
+        **Pagination:** Use `page` and `page_size` query parameters
+      operationId: listCareSessions
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationID'
+        - name: caregiver_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: patient_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [in_progress, completed]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: List of care sessions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CareSessionListResponse'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+
+  /care-sessions/{session_id}:
+    get:
+      tags:
+        - Care Sessions
+      summary: Get care session by ID
+      description: |
+        Get details of a specific care session.
+        
+        **Required permission:** `care_session:read`
+      operationId: getCareSession
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/OrganizationID'
+      responses:
+        '200':
+          description: Care session details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CareSession'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Care session not found
+
+  /care-sessions/{session_id}/complete:
+    post:
+      tags:
+        - Care Sessions
+      summary: Complete care session (check-out)
+      description: |
+        Caregiver checks out to complete a care session.
+        
+        **Required permission:** `care_session:update` (CAREGIVER role)
+        
+        **Business rules:**
+        - Only the caregiver who created the session can complete it
+        - Caregiver must provide notes
+        - Session status changes from `in_progress` to `completed`
+      operationId: completeCareSession
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/OrganizationID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompleteCareSessionRequest'
+      responses:
+        '200':
+          description: Care session completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CareSession'
+        '400':
+          description: Bad request (session already completed)
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (not the session owner)
+        '404':
+          description: Care session not found
+
+    patch:
+      tags:
+        - Care Sessions
+      summary: Update care session (Admin only)
+      description: |
+        Admin users can update care session details.
+        
+        **Required permission:** `care_session:admin` (ORG_ADMIN or SUPER_ADMIN)
+        
+        **Use cases:**
+        - Correct check-in/check-out times
+        - Update caregiver notes
+        - Adjust session status
+        
+        **Note:** All fields are optional - only provided fields will be updated.
+      operationId: updateCareSession
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/OrganizationID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCareSessionRequest'
+      responses:
+        '200':
+          description: Care session updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CareSession'
+        '400':
+          description: Bad request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (not an admin)
+        '404':
+          description: Care session not found
+
+  # =============================================================================
+  # REPORTS SERVICE
+  # =============================================================================
+  /reports/sessions/period:
+    get:
+      tags:
+        - Reports - Care Sessions
+      summary: Get care sessions for a time period
+      description: |
+        Get care sessions filtered by time period (day/week/month).
+        
+        **Required permission:** `reports:read` (Admin roles)
+        
+        **Periods:**
+        - `day`: Current day (00:00 to 23:59)
+        - `week`: Current week (Monday to Sunday)
+        - `month`: Current month (1st to last day)
+        
+        **Pagination:** Cursor-based. Use `next_cursor` from response for next page.
+      operationId: getSessionsByPeriod
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationID'
+        - name: period
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [day, week, month]
+          description: Time period filter
+        - name: cursor
+          in: query
+          schema:
+            type: string
+          description: Pagination cursor (from previous response)
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        '200':
+          description: Care session reports for the period
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CareSessionReportPage'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+
+  /reports/sessions/all:
+    get:
+      tags:
+        - Reports - Care Sessions
+      summary: Get all care sessions
+      description: |
+        Get all care sessions without time filtering.
+        
+        **Required permission:** `reports:read` (Admin roles)
+        
+        **Pagination:** Cursor-based. Use `next_cursor` from response for next page.
+      operationId: getAllSessions
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationID'
+        - name: cursor
+          in: query
+          schema:
+            type: string
+          description: Pagination cursor
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        '200':
+          description: All care session reports
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CareSessionReportPage'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+
+  /reports/sessions/period/download:
+    get:
+      tags:
+        - Reports - Care Sessions
+      summary: Download period sessions as CSV
+      description: |
+        Download care sessions for a time period as CSV file.
+        
+        **Required permission:** `reports:read` (Admin roles)
+        
+        **Returns:** CSV file with all session details
+      operationId: downloadSessionsByPeriod
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationID'
+        - name: period
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [day, week, month]
+      responses:
+        '200':
+          description: CSV file download
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+
+  /reports/sessions/all/download:
+    get:
+      tags:
+        - Reports - Care Sessions
+      summary: Download all sessions as CSV
+      description: |
+        Download all care sessions as CSV file.
+        
+        **Required permission:** `reports:read` (Admin roles)
+        
+        **Returns:** CSV file with all session details
+      operationId: downloadAllSessions
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationID'
+      responses:
+        '200':
+          description: CSV file download
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+
+  /reports/sessions/{session_id}:
+    get:
+      tags:
+        - Reports - Care Sessions
+      summary: Get single session report
+      description: |
+        Get detailed report for a specific care session.
+        
+        **Required permission:** `reports:read` (Admin roles)
+        
+        **Includes:** Patient and caregiver details, duration, notes
+      operationId: getSessionReport
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/OrganizationID'
+      responses:
+        '200':
+          description: Care session report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CareSessionReportItem'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Session not found
+
+  /reports/sessions/{session_id}/download:
+    get:
+      tags:
+        - Reports - Care Sessions
+      summary: Download single session as PDF
+      description: |
+        Download detailed session report as PDF.
+        
+        **Required permission:** `reports:read` (Admin roles)
+        
+        **Returns:** PDF file with session details
+      operationId: downloadSessionPDF
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/OrganizationID'
+      responses:
+        '200':
+          description: PDF file download
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Session not found
+
+  /reports/caregivers:
+    get:
+      tags:
+        - Reports - Caregivers
+      summary: List all caregivers
+      description: |
+        Get list of all caregivers in the organization.
+        
+        **Required permission:** `reports:read` (Admin roles)
+        
+        **Use case:** Caregiver selector for filtering/reports
+      operationId: listCaregivers
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationID'
+      responses:
+        '200':
+          description: List of caregivers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CaregiverListItem'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+
+  /reports/caregivers/performance:
+    get:
+      tags:
+        - Reports - Caregivers
+      summary: Get caregiver performance metrics
+      description: |
+        Get aggregated performance metrics for all caregivers.
+        
+        **Required permission:** `reports:read` (Admin roles)
+        
+        **Metrics include:**
+        - Total sessions
+        - Completed sessions
+        - Average rating (from patient feedback)
+        - Average session duration
+        
+        **Use case:** Caregiver performance dashboard
+      operationId: getCaregiverPerformance
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationID'
+      responses:
+        '200':
+          description: Caregiver performance data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CaregiverPerformanceItem'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+
+  /reports/caregivers/download:
+    get:
+      tags:
+        - Reports - Caregivers
+      summary: Download all caregivers report
+      description: |
+        Download performance report for all caregivers as CSV.
+        
+        **Required permission:** `reports:read` (Admin roles)
+        
+        **Returns:** CSV with caregiver performance metrics
+      operationId: downloadAllCaregiversReport
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationID'
+      responses:
+        '200':
+          description: CSV file download
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+
+  /reports/caregivers/{caregiver_id}/download:
+    get:
+      tags:
+        - Reports - Caregivers
+      summary: Download specific caregiver report
+      description: |
+        Download detailed performance report for a specific caregiver as PDF.
+        
+        **Required permission:** `reports:read` (Admin roles)
+        
+        **Returns:** PDF with caregiver's session history and metrics
+      operationId: downloadCaregiverReport
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: caregiver_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/OrganizationID'
+      responses:
+        '200':
+          description: PDF file download
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Caregiver not found
+
+  # =============================================================================
+  # FEEDBACK SERVICE
+  # =============================================================================
+  /feedback:
+    post:
+      tags:
+        - Feedback
+      summary: Create feedback
+      description: |
+        Patient creates feedback for a completed care session.
+        
+        **Required permission:** `feedback:create` (PATIENT role)
+        
+        **Business rules:**
+        - Only patients can create feedback
+        - One feedback per care session
+        - Rating must be 1-5 stars
+        - Caregiver ID is automatically looked up from the care session
+        
+        **Satisfaction levels:**
+        - 1 star → VERY_DISSATISFIED
+        - 2 stars → DISSATISFIED
+        - 3 stars → NEUTRAL
+        - 4 stars → SATISFIED
+        - 5 stars → VERY_SATISFIED
+      operationId: createFeedback
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFeedbackRequest'
+      responses:
+        '201':
+          description: Feedback created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedbackResponse'
+        '400':
+          description: Bad request (e.g., feedback already exists for session)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+
+    get:
+      tags:
+        - Feedback
+      summary: List feedbacks
+      description: |
+        List all feedbacks with metrics (Admin roles only).
+        
+        **Required permission:** `feedback:read` (ORG_ADMIN or SUPER_ADMIN)
+        
+        **Returns:**
+        - Paginated list of feedbacks
+        - Satisfaction metrics (average rating, satisfaction index, distribution, counts)
+        
+        **Filtering:**
+        - `patient_id`: Filter by specific patient (optional)
+        
+        **Pagination:** Use `page` and `page_size` query parameters
+      operationId: listFeedbacks
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationID'
+        - name: patient_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: List of feedbacks with metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedbackListResponse'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+
+  /feedback/feedback/{feedback_id}:
+    get:
+      tags:
+        - Feedback
+      summary: Get feedback by ID
+      description: |
+        Get specific feedback details.
+        
+        **Required permission:** `feedback:read`
+      operationId: getFeedback
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: feedback_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/OrganizationID'
+      responses:
+        '200':
+          description: Feedback details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedbackResponse'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Feedback not found
+
+    delete:
+      tags:
+        - Feedback
+      summary: Delete feedback
+      description: |
+        Delete a feedback entry.
+        
+        **Required permission:** `feedback:delete` (Admin roles or feedback owner)
+        
+        **Business rules:**
+        - Patients can delete their own feedback
+        - Admins can delete any feedback
+      operationId: deleteFeedback
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: feedback_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/OrganizationID'
+      responses:
+        '204':
+          description: Feedback deleted successfully
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (not authorized to delete this feedback)
+        '404':
+          description: Feedback not found
+
+  /feedback/analytics/daily:
+    get:
+      tags:
+        - Feedback Analytics
+      summary: Get daily average feedback ratings
+      description: |
+        Get daily average feedback ratings for a date range.
+        
+        **Required permission:** `feedback:read` (Admin roles)
+        
+        **Returns:**
+        - Daily averages with date, average rating, total feedbacks, satisfaction index
+        - Overall metrics for the entire period
+        
+        **Use case:** Dashboard showing feedback trends over time
+      operationId: getDailyAverages
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationID'
+        - name: start_date
+          in: query
+          required: true
+          description: Start date (YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+            example: "2026-01-01"
+        - name: end_date
+          in: query
+          required: true
+          description: End date (YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+            example: "2026-01-07"
+      responses:
+        '200':
+          description: Daily average feedback ratings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailyAverageListResponse'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+
+  /feedback/analytics/caregiver/{caregiver_id}/weekly:
+    get:
+      tags:
+        - Feedback Analytics
+      summary: Get caregiver weekly feedback metrics
+      description: |
+        Get caregiver's average feedback for a specific week.
+        
+        **Required permission:** `feedback:read` (Admin roles)
+        
+        **Week format:** Monday to Sunday (7 days)
+        
+        **Returns:**
+        - Average rating for the week
+        - Total feedbacks received
+        - Satisfaction index (0-100 scale)
+        - Distribution of star ratings
+        - Count by satisfaction level
+        
+        **Use case:** Caregiver performance dashboard
+      operationId: getCaregiverWeeklyMetrics
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: caregiver_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/OrganizationID'
+        - name: week_start
+          in: query
+          required: true
+          description: Start of week - Monday (YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+            example: "2026-01-06"
+      responses:
+        '200':
+          description: Caregiver weekly feedback metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaregiverWeeklyMetrics'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+
+tags:
+  - name: Health
+    description: Service health check
+  - name: Care Sessions
+    description: |
+      Care session management - check-in/check-out flow for caregivers.
+      
+      **Workflow:**
+      1. Caregiver checks in → Creates session with status `in_progress`
+      2. Caregiver performs care activities
+      3. Caregiver checks out → Completes session, adds notes, status changes to `completed`
+      4. Patient can provide feedback on completed session
+  - name: Reports - Care Sessions
+    description: |
+      Care session reporting and analytics for administrators.
+      
+      **Features:**
+      - Period-based filtering (day/week/month)
+      - Full session history with patient and caregiver details
+      - CSV/PDF download capabilities
+      - Cursor-based pagination for large datasets
+  - name: Reports - Caregivers
+    description: |
+      Caregiver performance reporting and analytics.
+      
+      **Features:**
+      - Caregiver listing for filters
+      - Performance metrics (sessions, completion rate, ratings)
+      - Individual and aggregate reports
+      - CSV/PDF download capabilities
+  - name: Feedback
+    description: |
+      Patient feedback management for completed care sessions.
+      
+      **Features:**
+      - 5-star rating system with semantic satisfaction levels
+      - One feedback per care session
+      - Automatic caregiver_id lookup from care session
+      - Rich metrics computation (average, distribution, satisfaction index)
+  - name: Feedback Analytics
+    description: |
+      Analytics endpoints for feedback data visualization.
+      
+      **Features:**
+      - Daily average ratings over time
+      - Caregiver weekly performance metrics
+      - Satisfaction trends and distributions
+      - Dashboard-ready data
+
