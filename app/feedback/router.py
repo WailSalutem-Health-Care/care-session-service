@@ -2,14 +2,8 @@
 from uuid import UUID
 from typing import Optional
 from datetime import date, datetime, timedelta
-from io import BytesIO
-import pandas as pd
-from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
-from fastapi import APIRouter, Depends, status, Query, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, Depends, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import text, select
 from app.db.postgres import get_db
 from app.feedback.service import FeedbackService
 from app.feedback.schemas import (
@@ -20,13 +14,10 @@ from app.feedback.schemas import (
     DailyAverageResponse,
     DailyAverageListResponse,
     CaregiverWeeklyMetrics,
-    CaregiverFeedbackItem,
-    CaregiverFeedbackPage,
 )
 from app.feedback.models import Feedback
 from app.feedback.satisfaction import get_satisfaction_level, compute_metrics
 from app.auth.middleware import JWTPayload, verify_token, check_permission
-from app.db.models import Patient, User
 
 router = APIRouter(
     prefix="/feedback",
@@ -203,184 +194,3 @@ async def get_caregiver_weekly_metrics(
         week_end=week_end.isoformat(),
         **metrics_data,
     )
-
-
-def _format_full_name(first_name: Optional[str], last_name: Optional[str]) -> str:
-    return " ".join([name for name in [first_name, last_name] if name])
-
-
-async def _fetch_caregiver_feedback(
-    db: AsyncSession,
-    tenant_schema: str,
-    caregiver_id: UUID,
-    limit: int,
-    offset: int,
-):
-    await db.execute(text(f'SET search_path TO "{tenant_schema}"'))
-    total_result = await db.execute(
-        text(
-            """
-            SELECT COUNT(*) AS total
-            FROM feedback f
-            JOIN care_sessions cs ON cs.id = f.care_session_id
-            WHERE cs.caregiver_id = :caregiver_id
-              AND cs.deleted_at IS NULL
-              AND f.deleted_at IS NULL
-            """
-        ),
-        {"caregiver_id": caregiver_id},
-    )
-    total = int(total_result.scalar() or 0)
-
-    result = await db.execute(
-        text(
-            """
-            SELECT
-                f.id,
-                f.care_session_id,
-                f.patient_id,
-                f.rating,
-                f.patient_feedback,
-                f.created_at AS feedback_date,
-                cs.check_in_time AS session_date
-            FROM feedback f
-            JOIN care_sessions cs ON cs.id = f.care_session_id
-            WHERE cs.caregiver_id = :caregiver_id
-              AND cs.deleted_at IS NULL
-              AND f.deleted_at IS NULL
-            ORDER BY f.created_at DESC
-            LIMIT :limit OFFSET :offset
-            """
-        ),
-        {"caregiver_id": caregiver_id, "limit": limit, "offset": offset},
-    )
-    rows = [dict(row._mapping) for row in result]
-    return rows, total
-
-
-async def _build_feedback_page(
-    db: AsyncSession,
-    tenant_schema: str,
-    caregiver_id: UUID,
-    limit: int,
-    offset: int,
-) -> CaregiverFeedbackPage:
-    rows, total = await _fetch_caregiver_feedback(db, tenant_schema, caregiver_id, limit, offset)
-    patient_ids = {row["patient_id"] for row in rows}
-
-    await db.execute(text(f'SET search_path TO "{tenant_schema}"'))
-    patients_result = await db.execute(select(Patient).where(Patient.id.in_(patient_ids)))
-    patients = {patient.id: patient for patient in patients_result.scalars().all()}
-
-    caregiver_result = await db.execute(select(User).where(User.id == caregiver_id))
-    caregiver = caregiver_result.scalar_one_or_none()
-    caregiver_full_name = _format_full_name(caregiver.first_name, caregiver.last_name) if caregiver else None
-
-    items = [
-        CaregiverFeedbackItem(
-            id=row["id"],
-            caregiver_id=caregiver_id,
-            caregiver_full_name=caregiver_full_name,
-            patient_id=row["patient_id"],
-            patient_full_name=_format_full_name(
-                patients.get(row["patient_id"]).first_name,
-                patients.get(row["patient_id"]).last_name,
-            )
-            if patients.get(row["patient_id"])
-            else None,
-            rating=row["rating"],
-            comment=row.get("patient_feedback"),
-            session_date=row["session_date"],
-            feedback_date=row["feedback_date"],
-        )
-        for row in rows
-    ]
-    return CaregiverFeedbackPage(items=items, total=total, limit=limit, offset=offset)
-
-
-def _generate_feedback_csv(items: list[CaregiverFeedbackItem]) -> BytesIO:
-    data = []
-    for feedback in items:
-        data.append({
-            "Caregiver ID": str(feedback.caregiver_id),
-            "Caregiver Name": feedback.caregiver_full_name or "",
-            "Patient ID": str(feedback.patient_id),
-            "Patient Name": feedback.patient_full_name or "",
-            "Session Date": feedback.session_date.isoformat(),
-            "Rating": feedback.rating,
-            "Comment": feedback.comment or "",
-            "Feedback Date": feedback.feedback_date.isoformat(),
-        })
-    df = pd.DataFrame(data)
-    buffer = BytesIO()
-    df.to_csv(buffer, index=False)
-    buffer.seek(0)
-    return buffer
-
-
-def _generate_feedback_pdf(items: list[CaregiverFeedbackItem], title: str) -> BytesIO:
-    buffer = BytesIO()
-    c = canvas.Canvas(buffer, pagesize=letter)
-    width, height = letter
-    line_x1 = 50
-    line_x2 = width - 50
-
-    c.setFont("Helvetica-Bold", 16)
-    c.drawString(100, height - 50, title)
-
-    y = height - 80
-    c.setFont("Helvetica", 10)
-
-    for feedback in items:
-        if y < 200:
-            c.showPage()
-            y = height - 50
-            c.setFont("Helvetica", 10)
-
-        c.drawString(50, y, f"Caregiver: {feedback.caregiver_full_name or ''}")
-        c.drawString(50, y - 15, f"Patient: {feedback.patient_full_name or ''}")
-        c.drawString(50, y - 30, f"Session Date: {feedback.session_date}")
-        c.drawString(50, y - 45, f"Rating: {feedback.rating}")
-        c.drawString(50, y - 60, f"Comment: {feedback.comment or ''}")
-        c.drawString(50, y - 75, f"Feedback Date: {feedback.feedback_date}")
-        c.setLineWidth(0.5)
-        c.line(line_x1, y - 90, line_x2, y - 90)
-        y -= 110
-
-    c.save()
-    buffer.seek(0)
-    return buffer
-
-
-@router.get("/caregivers/{caregiver_id}", response_model=CaregiverFeedbackPage)
-async def list_caregiver_feedback(
-    caregiver_id: UUID,
-    limit: int = Query(100, ge=1, le=1000),
-    offset: int = Query(0, ge=0),
-    db: AsyncSession = Depends(get_db),
-    jwt_payload: JWTPayload = Depends(verify_token),
-):
-    """List caregiver feedback from feedbak table."""
-    check_permission(jwt_payload, "care-session:report")
-    return await _build_feedback_page(db, jwt_payload.tenant_schema, caregiver_id, limit, offset)
-
-
-@router.get("/caregivers/{caregiver_id}/download")
-async def download_caregiver_feedback(
-    caregiver_id: UUID,
-    format: str = Query("json", enum=["json", "csv", "pdf"]),
-    db: AsyncSession = Depends(get_db),
-    jwt_payload: JWTPayload = Depends(verify_token),
-):
-    """Download caregiver feedback report."""
-    check_permission(jwt_payload, "care-session:report")
-    page = await _build_feedback_page(db, jwt_payload.tenant_schema, caregiver_id, limit=10000, offset=0)
-
-    if format == "csv":
-        csv_buffer = _generate_feedback_csv(page.items)
-        return StreamingResponse(csv_buffer, media_type="text/csv", headers={"Content-Disposition": f"attachment; filename=caregiver_{caregiver_id}_feedback.csv"})
-    elif format == "pdf":
-        pdf_buffer = _generate_feedback_pdf(page.items, f"Caregiver Feedback - {caregiver_id}")
-        return StreamingResponse(pdf_buffer, media_type="application/pdf", headers={"Content-Disposition": f"attachment; filename=caregiver_{caregiver_id}_feedback.pdf"})
-    else:
-        raise HTTPException(status_code=400, detail="Invalid format")
