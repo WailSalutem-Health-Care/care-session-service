@@ -5,7 +5,6 @@ from datetime import date, datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, text, func, and_, cast, Date
 from app.db.models import Feedback
-from app.feedback.models import Feedback
 from app.db.repository import BaseRepository
 
 

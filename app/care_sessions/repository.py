@@ -5,9 +5,8 @@ from typing import Optional, List, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, or_, text, func
 from app.db.models import CareSession
-from app.db.models import Patient, User
 from sqlalchemy import select, and_, func
-from app.care_sessions.models import CareSession
+
 from app.db.repository import BaseRepository
 
 

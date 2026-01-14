@@ -7,8 +7,6 @@ from sqlalchemy import select, and_, or_, text, func, case
 from sqlalchemy.dialects.postgresql import insert
 
 from app.db.models import CareSession, Patient, User
-from app.care_sessions.models import CareSession
-from app.db.models import Patient, User
 from app.db.repository import BaseRepository
 
 
