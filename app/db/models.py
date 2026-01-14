@@ -1,6 +1,6 @@
 from datetime import datetime
 from uuid import uuid4
-from sqlalchemy import Column, String, DateTime, Text, Boolean, Date, Integer, ForeignKey
+from sqlalchemy import Column, String, DateTime, Text, Boolean, Date, Integer, ForeignKey, func
 from sqlalchemy.dialects.postgresql import UUID
 from app.db.postgres import Base
 
@@ -16,12 +16,12 @@ class CareSession(Base):
     session_id = Column(String(50), unique=True, nullable=False, index=True)
     patient_id = Column(UUID(as_uuid=True), nullable=False, index=True)
     caregiver_id = Column(UUID(as_uuid=True), nullable=False, index=True)
-    check_in_time = Column(DateTime, default=datetime.utcnow, nullable=False)
+    check_in_time = Column(DateTime, default=func.now(), nullable=False)
     check_out_time = Column(DateTime, nullable=True)
     status = Column(String(50), default="in_progress", nullable=False, index=True) 
     caregiver_notes = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=func.now(), nullable=False)
+    updated_at = Column(DateTime, default=None, onupdate=func.now(), nullable=True)
     deleted_at = Column(DateTime, nullable=True)
 
 class Organization(Base):
@@ -82,7 +82,8 @@ class User(Base):
     __tablename__ = "users"
     __table_args__ = {'extend_existing': True}
     
-    id = Column(UUID(as_uuid=True), primary_key=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    keycloak_user_id = Column(UUID(as_uuid=True), unique=True, nullable=False, index=True)
     first_name = Column(String(255), nullable=False)
     last_name = Column(String(255), nullable=False)
     email = Column(String(255), nullable=True)
@@ -107,5 +108,5 @@ class Feedback(Base):
     caregiver_id = Column(UUID(as_uuid=True), nullable=False, index=True)
     rating = Column(Integer, nullable=False)  # 1=Dissatisfied, 2=Neutral, 3=Satisfied
     patient_feedback = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=func.now(), nullable=False)
     deleted_at = Column(DateTime, nullable=True)

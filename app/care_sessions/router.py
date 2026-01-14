@@ -1,7 +1,7 @@
 from uuid import UUID
 from datetime import datetime
 from typing import Optional
-from fastapi import APIRouter, Depends, status, Query
+from fastapi import APIRouter, Depends, status, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.postgres import get_db
 from app.care_sessions.service import CareSessionService
@@ -14,6 +14,7 @@ from app.care_sessions.schemas import (
 )
 from app.db.models import CareSession
 from app.auth.middleware import JWTPayload, verify_token, check_permission
+from app.utils.timezone import convert_to_cet
 
 router = APIRouter(
     prefix="/care-sessions",
@@ -28,12 +29,12 @@ def to_response(session: CareSession) -> CareSessionResponse:
         id=session.id,
         patient_id=session.patient_id,
         caregiver_id=session.caregiver_id,
-        check_in_time=session.check_in_time,
-        check_out_time=session.check_out_time,
+        check_in_time=convert_to_cet(session.check_in_time),
+        check_out_time=convert_to_cet(session.check_out_time),
         status=session.status,
         caregiver_notes=session.caregiver_notes,
-        created_at=session.created_at,
-        updated_at=session.updated_at,
+        created_at=convert_to_cet(session.created_at),
+        updated_at=convert_to_cet(session.updated_at),
     )
 
 
@@ -58,7 +59,7 @@ async def create_care_session(
     service = CareSessionService(db, jwt_payload.tenant_schema)
     session = await service.create_session(
         tag_id=request.tag_id,
-        caregiver_id=jwt_payload.user_id,
+        caregiver_id=jwt_payload.internal_user_id,
         session_id=request.session_id,
     )
     
@@ -67,12 +68,12 @@ async def create_care_session(
 
 @router.get("/{session_id}", response_model=CareSessionResponse)
 async def get_care_session(
-    session_id: str,
+    session_id: UUID,
     db: AsyncSession = Depends(get_db),
     jwt_payload: JWTPayload = Depends(verify_token),
 ):
     """
-    Get care session details.
+    Get care session details by UUID.
     
     Required permission: care-session:read (CAREGIVER, PATIENT roles)
     """
@@ -86,7 +87,7 @@ async def get_care_session(
 
 @router.put("/{session_id}/complete", response_model=CareSessionResponse)
 async def complete_care_session(
-    session_id: str,
+    session_id: UUID,
     request: CompleteCareSessionRequest,
     db: AsyncSession = Depends(get_db),
     jwt_payload: JWTPayload = Depends(verify_token),
@@ -107,7 +108,7 @@ async def complete_care_session(
     session = await service.complete_session(
         session_id=session_id,
         caregiver_notes=request.caregiver_notes,
-        caregiver_id=jwt_payload.user_id,
+        caregiver_id=jwt_payload.internal_user_id,
     )
     
     return to_response(session)
@@ -152,7 +153,7 @@ async def list_care_sessions(
 
 @router.patch("/{session_id}", response_model=CareSessionResponse)
 async def update_care_session(
-    session_id: str,
+    session_id: UUID,
     request: UpdateCareSessionRequest,
     db: AsyncSession = Depends(get_db),
     jwt_payload: JWTPayload = Depends(verify_token),
