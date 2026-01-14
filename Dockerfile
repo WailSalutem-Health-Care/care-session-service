@@ -1,5 +1,12 @@
 FROM python:3.12-slim
 WORKDIR /app
+
+# Install timezone data for proper timezone support
+RUN apt-get update && apt-get install -y tzdata && rm -rf /var/lib/apt/lists/*
+
+# Set timezone to CET (GMT+1)
+ENV TZ=CET
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY permissions.yml .

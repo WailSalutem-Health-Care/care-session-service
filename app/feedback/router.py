@@ -31,6 +31,7 @@ from app.db.models import Feedback
 from app.feedback.satisfaction import get_satisfaction_level, compute_metrics
 from app.auth.middleware import JWTPayload, verify_token, check_permission
 from app.db.models import Patient, User
+from app.utils.timezone import convert_to_cet
 
 router = APIRouter(
     prefix="/feedback",
@@ -49,7 +50,7 @@ def to_response(feedback: Feedback) -> FeedbackResponse:
         rating=feedback.rating,
         patient_feedback=feedback.patient_feedback,
         satisfaction_level=satisfaction_level.value,
-        created_at=feedback.created_at,
+        created_at=convert_to_cet(feedback.created_at),
     )
 
 
