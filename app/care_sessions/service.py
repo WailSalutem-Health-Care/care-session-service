@@ -21,11 +21,11 @@ class CareSessionService:
         self.repository = CareSessionRepository(db, tenant_schema)
         self.validator = SessionValidator(db, self.repository)
     
-    async def _get_session_or_404(self, session_id: UUID) -> CareSession:
+    async def _get_session_or_404(self, id: UUID) -> CareSession:
         """Get session by UUID or raise 404"""
-        session = await self.repository.get_by_id(session_id)
+        session = await self.repository.get_by_id(id)
         if not session:
-            raise CareSessionNotFoundException(session_id)
+            raise CareSessionNotFoundException(id)
         return session
     
     async def create_session(
