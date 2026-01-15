@@ -17,5 +17,7 @@ __pycache__/
 # Specific pycache directories
 app/**/__pycache__/
 
+
 *.pyc
 *.pyc
+
