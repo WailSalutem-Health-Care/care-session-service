@@ -17,6 +17,8 @@ from app.reports.schemas import (
     FeedbackReportItem,
     FeedbackReportPage,
     FeedbackReportSummary,
+    CaregiverFeedbackItem,
+    CaregiverFeedbackPage,
 )
 from app.care_sessions.exceptions import CareSessionNotFoundException
 from app.db.models import Patient, User
@@ -289,7 +291,7 @@ class ReportsService:
         data = []
         for session in sessions:
             data.append({
-                "Session ID": str(session.session_id),
+                "Session ID": str(session.id),
                 "Caregiver ID": str(session.caregiver_id),
                 "Caregiver Name": session.caregiver_full_name or "",
                 "Careplan Type": session.careplan_type or "",
@@ -326,7 +328,7 @@ class ReportsService:
                 y = height - 50
                 c.setFont("Helvetica", 10)
 
-            c.drawString(50, y, f"Session ID: {session.session_id}")
+            c.drawString(50, y, f"Session ID: {session.id}")
             c.drawString(50, y - 15, f"Caregiver: {session.caregiver_full_name or ''}")
             c.drawString(50, y - 30, f"Careplan Type: {session.careplan_type or ''}")
             c.drawString(50, y - 45, f"Check In: {session.check_in_time}")
@@ -462,6 +464,96 @@ class ReportsService:
             c.setLineWidth(0.5)
             c.line(line_x1, y - 120, line_x2, y - 120)
             y -= 140
+
+        c.save()
+        buffer.seek(0)
+        return buffer
+
+    async def get_caregiver_feedback(
+        self,
+        caregiver_id: UUID,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> CaregiverFeedbackPage:
+        rows, total = await self.repository.get_caregiver_feedback(caregiver_id, limit, offset)
+        patient_ids = {row["patient_id"] for row in rows}
+        patients = await self.repository.get_patients_by_ids(list(patient_ids))
+        caregivers = await self.repository.get_users_by_ids([caregiver_id])
+        caregiver = caregivers.get(caregiver_id)
+        caregiver_full_name = None
+        if caregiver:
+            caregiver_full_name = self._format_full_name(caregiver.first_name, caregiver.last_name)
+
+        items = [
+            CaregiverFeedbackItem(
+                id=row["id"],
+                caregiver_id=caregiver_id,
+                caregiver_full_name=caregiver_full_name,
+                patient_id=row["patient_id"],
+                patient_full_name=self._format_full_name(
+                    patients.get(row["patient_id"]).first_name,
+                    patients.get(row["patient_id"]).last_name,
+                )
+                if patients.get(row["patient_id"])
+                else None,
+                rating=row["rating"],
+                comment=row.get("patient_feedback"),
+                session_date=row["session_date"],
+                feedback_date=row["feedback_date"],
+            )
+            for row in rows
+        ]
+        return CaregiverFeedbackPage(items=items, total=total, limit=limit, offset=offset)
+
+    def generate_caregiver_feedback_csv(self, feedbacks: List[CaregiverFeedbackItem]) -> BytesIO:
+        """Generate CSV file from caregiver feedback."""
+        data = []
+        for feedback in feedbacks:
+            data.append({
+                "Caregiver ID": str(feedback.caregiver_id),
+                "Caregiver Name": feedback.caregiver_full_name or "",
+                "Patient ID": str(feedback.patient_id),
+                "Patient Name": feedback.patient_full_name or "",
+                "Session Date": feedback.session_date.isoformat(),
+                "Rating": feedback.rating,
+                "Comment": feedback.comment or "",
+                "Feedback Date": feedback.feedback_date.isoformat(),
+            })
+        df = pd.DataFrame(data)
+        buffer = BytesIO()
+        df.to_csv(buffer, index=False)
+        buffer.seek(0)
+        return buffer
+
+    def generate_caregiver_feedback_pdf(self, feedbacks: List[CaregiverFeedbackItem], title: str) -> BytesIO:
+        """Generate PDF file from caregiver feedback."""
+        buffer = BytesIO()
+        c = canvas.Canvas(buffer, pagesize=letter)
+        width, height = letter
+        line_x1 = 50
+        line_x2 = width - 50
+
+        c.setFont("Helvetica-Bold", 16)
+        c.drawString(100, height - 50, title)
+
+        y = height - 80
+        c.setFont("Helvetica", 10)
+
+        for feedback in feedbacks:
+            if y < 200:
+                c.showPage()
+                y = height - 50
+                c.setFont("Helvetica", 10)
+
+            c.drawString(50, y, f"Caregiver: {feedback.caregiver_full_name or ''}")
+            c.drawString(50, y - 15, f"Patient: {feedback.patient_full_name or ''}")
+            c.drawString(50, y - 30, f"Session Date: {feedback.session_date}")
+            c.drawString(50, y - 45, f"Rating: {feedback.rating}")
+            c.drawString(50, y - 60, f"Comment: {feedback.comment or ''}")
+            c.drawString(50, y - 75, f"Feedback Date: {feedback.feedback_date}")
+            c.setLineWidth(0.5)
+            c.line(line_x1, y - 90, line_x2, y - 90)
+            y -= 110
 
         c.save()
         buffer.seek(0)

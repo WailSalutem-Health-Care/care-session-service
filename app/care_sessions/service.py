@@ -21,22 +21,11 @@ class CareSessionService:
         self.repository = CareSessionRepository(db, tenant_schema)
         self.validator = SessionValidator(db, self.repository)
     
-    async def _get_session_or_404(self, session_id: UUID | str) -> CareSession:
-        """Get session by primary ID (UUID) or by public session_id (string) or raise 404"""
-        session = None
-        # Try by primary UUID id first
-        try:
-            if isinstance(session_id, str):
-                # attempt to fetch by public session_id string
-                session = await self.repository.get_by_session_id(session_id)
-            else:
-                session = await self.repository.get_by_id(session_id)
-        except Exception:
-            # fallback: if session_id is UUID-like string, repository.get_by_id expects UUID
-            session = await self.repository.get_by_session_id(str(session_id))
-
+    async def _get_session_or_404(self, id: UUID) -> CareSession:
+        """Get session by UUID or raise 404"""
+        session = await self.repository.get_by_id(id)
         if not session:
-            raise CareSessionNotFoundException(session_id)
+            raise CareSessionNotFoundException(id)
         return session
     
     async def create_session(
@@ -74,11 +63,11 @@ class CareSessionService:
         created_session = await self.repository.create(new_session)
         return created_session
     
-    async def get_session(self, session_id: UUID | str) -> CareSession:
-        """Get a care session by primary ID or public session_id"""
+    async def get_session(self, session_id: UUID) -> CareSession:
+        """Get a care session by UUID"""
         return await self._get_session_or_404(session_id)
     
-    async def get_patient_with_session(self, session_id: UUID | str) -> dict:
+    async def get_patient_with_session(self, session_id: UUID) -> dict:
         """Get patient details for a care session"""
         session = await self._get_session_or_404(session_id)
         
@@ -92,7 +81,7 @@ class CareSessionService:
 
     async def complete_session(
         self,
-        session_id: UUID | str,
+        session_id: UUID,
         caregiver_notes: str,
         caregiver_id: UUID,
     ) -> CareSession:
@@ -121,7 +110,7 @@ class CareSessionService:
 
     async def update_session(
         self,
-        session_id: UUID | str,
+        session_id: UUID,
         check_in_time: datetime | None = None,
         check_out_time: datetime | None = None,
         caregiver_notes: str | None = None,
