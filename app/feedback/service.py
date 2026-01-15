@@ -163,5 +163,18 @@ class FeedbackService:
         feedback = await self.repository.get_by_id(feedback_id)
         if not feedback:
             raise FeedbackNotFoundException(feedback_id)
-
         await self.repository.delete(feedback)
+    
+
+    async def get_caregiver_average_rating(
+        self,
+        caregiver_id: UUID,
+        start_date: date,
+        end_date: date,
+    ) -> Tuple[Optional[float], int]:
+        """Get caregiver's average rating for a date range."""
+        return await self.repository.get_caregiver_average_rating(
+            caregiver_id=caregiver_id,
+            start_date=start_date,
+            end_date=end_date,
+        )

@@ -93,3 +93,14 @@ class TopCaregiversResponse(BaseModel):
     week_start: str  # YYYY-MM-DD (Monday)
     week_end: str  # YYYY-MM-DD (Sunday)
     top_caregivers: List[TopCaregiverItem]
+
+
+class CaregiverAverageRatingResponse(BaseModel):
+    """Caregiver's average rating for a period"""
+    caregiver_id: UUID
+    period: str  # 'daily', 'weekly', 'monthly'
+    start_date: str
+    end_date: str
+    average_rating: Optional[float]
+    total_feedbacks: int
+
