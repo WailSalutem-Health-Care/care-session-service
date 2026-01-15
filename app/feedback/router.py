@@ -78,9 +78,10 @@ async def create_feedback(
     check_permission(jwt_payload, "feedback:create")
     
     service = FeedbackService(db, jwt_payload.tenant_schema)
+    
     feedback = await service.create_feedback(
         care_session_id=request.care_session_id,
-        patient_id=jwt_payload.user_id,
+        patient_id=jwt_payload.internal_user_id,
         rating=request.rating,
         patient_feedback=request.patient_feedback,
     )

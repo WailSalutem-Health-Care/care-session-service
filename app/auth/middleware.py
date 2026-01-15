@@ -12,7 +12,7 @@ from app.auth.models import JWTPayload
 from app.auth.jwt_verifier import JWTVerifier
 from app.auth.permissions_manager import PermissionsManager
 from app.db.postgres import get_db
-from app.db.models import Organization, User
+from app.db.models import Organization, User, Patient
 
 
 # Initialize components
@@ -33,17 +33,30 @@ async def _lookup_internal_user_id(
 ) -> Optional[UUID]:
     """
     Look up internal user ID from authenticated user ID.
+    
+    Checks both Patient and User tables since different user types are stored in different tables.
         
     Returns:
-        Internal user ID if found, None otherwise
+        User/Patient ID if found, None otherwise
     """
     try:
         await db.execute(text(f'SET search_path TO "{tenant_schema}"'))
+        
+        # First try to find in Patient table
+        stmt = select(Patient.id).where(Patient.keycloak_user_id == UUID(auth_user_id))
+        result = await db.execute(stmt)
+        patient_id = result.scalar_one_or_none()
+        if patient_id:
+            return patient_id
+        
+        # If not found in Patient table, try User table (for caregivers, admins, etc.)
         stmt = select(User.id).where(User.keycloak_user_id == UUID(auth_user_id))
         result = await db.execute(stmt)
-        internal_user_id = result.scalar_one_or_none()
+        user_id = result.scalar_one_or_none()
+        if user_id:
+            return user_id
         
-        return internal_user_id
+        return None
     except Exception:
         return None
 
