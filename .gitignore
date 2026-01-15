@@ -1,1 +1,19 @@
 .env
+
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+
+# PyCharm
+.idea/
+
+# VS Code
+.vscode/
+
+# Specific pycache directories
+app/**/__pycache__/
+
