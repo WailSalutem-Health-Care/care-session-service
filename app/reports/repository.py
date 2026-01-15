@@ -4,20 +4,17 @@ from uuid import UUID
 from typing import Optional, List, Dict, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, or_, text, func, case
+from sqlalchemy.dialects.postgresql import insert
 
 from app.db.models import CareSession, Patient, User
+from app.db.repository import BaseRepository
 
 
-class ReportsRepository:
+class ReportsRepository(BaseRepository):
     """Repository for report-specific database operations."""
 
     def __init__(self, db: AsyncSession, tenant_schema: str):
-        self.db = db
-        self.tenant_schema = tenant_schema
-
-    async def _set_search_path(self):
-        """Set PostgreSQL search_path to tenant schema"""
-        await self.db.execute(text(f'SET search_path TO "{self.tenant_schema}"'))
+        super().__init__(db, tenant_schema, include_public=False)
 
     async def get_by_id(self, session_id: UUID) -> Optional[CareSession]:
         """Get care session by ID"""
@@ -407,3 +404,124 @@ class ReportsRepository:
             "avg_rating": float(row.get("avg_rating")) if row.get("avg_rating") is not None else None,
             "positive_feedback": int(row.get("positive_feedback") or 0),
         }
+
+    async def get_caregiver_feedback(
+        self,
+        caregiver_id: UUID,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> Tuple[List[Dict[str, object]], int]:
+        """List caregiver feedback items for reports."""
+        await self._set_search_path()
+        count_stmt = text(
+            """
+            SELECT COUNT(*) AS total
+            FROM feedback f
+            JOIN care_sessions cs ON cs.id = f.care_session_id
+            WHERE cs.caregiver_id = :caregiver_id
+              AND cs.deleted_at IS NULL
+              AND f.deleted_at IS NULL
+            """
+        )
+        total_result = await self.db.execute(count_stmt, {"caregiver_id": caregiver_id})
+        total = int(total_result.scalar() or 0)
+
+        data_stmt = text(
+            """
+            SELECT
+                f.id,
+                f.care_session_id,
+                f.patient_id,
+                f.rating,
+                f.patient_feedback,
+                f.created_at AS feedback_date,
+                cs.check_in_time AS session_date
+            FROM feedback f
+            JOIN care_sessions cs ON cs.id = f.care_session_id
+            WHERE cs.caregiver_id = :caregiver_id
+              AND cs.deleted_at IS NULL
+              AND f.deleted_at IS NULL
+            ORDER BY f.created_at DESC
+            LIMIT :limit OFFSET :offset
+            """
+        )
+        result = await self.db.execute(
+            data_stmt,
+            {"caregiver_id": caregiver_id, "limit": limit, "offset": offset},
+        )
+        rows = [dict(row._mapping) for row in result]
+        return rows, total
+
+    async def upsert_patient_cache(self, payload: Dict[str, object]) -> None:
+        """Upsert patient cache record."""
+        await self._set_search_path()
+        update_payload = dict(payload)
+        update_payload.pop("created_at", None)
+        stmt = insert(Patient).values(**payload).on_conflict_do_update(
+            index_elements=[Patient.id],
+            set_=update_payload,
+        )
+        await self.db.execute(stmt)
+        await self.db.commit()
+
+    async def mark_patient_deleted(self, patient_id: UUID, deleted_at: datetime) -> None:
+        """Mark patient as deleted."""
+        await self._set_search_path()
+        await self.db.execute(
+            Patient.__table__.update()
+            .where(Patient.id == patient_id)
+            .values(deleted_at=deleted_at, is_active=False, updated_at=deleted_at)
+        )
+        await self.db.commit()
+
+    async def update_patient_status(self, patient_id: UUID, is_active: bool, updated_at: datetime) -> None:
+        """Update patient active status."""
+        await self._set_search_path()
+        await self.db.execute(
+            Patient.__table__.update()
+            .where(Patient.id == patient_id)
+            .values(is_active=is_active, updated_at=updated_at)
+        )
+        await self.db.commit()
+
+    async def upsert_user_cache(self, payload: Dict[str, object]) -> None:
+        """Upsert user cache record."""
+        await self._set_search_path()
+        update_payload = dict(payload)
+        update_payload.pop("created_at", None)
+        stmt = insert(User).values(**payload).on_conflict_do_update(
+            index_elements=[User.id],
+            set_=update_payload,
+        )
+        await self.db.execute(stmt)
+        await self.db.commit()
+
+    async def mark_user_deleted(self, user_id: UUID, deleted_at: datetime) -> None:
+        """Mark user as deleted."""
+        await self._set_search_path()
+        await self.db.execute(
+            User.__table__.update()
+            .where(User.id == user_id)
+            .values(deleted_at=deleted_at, is_active=False, updated_at=deleted_at)
+        )
+        await self.db.commit()
+
+    async def update_user_status(self, user_id: UUID, is_active: bool, updated_at: datetime) -> None:
+        """Update user active status."""
+        await self._set_search_path()
+        await self.db.execute(
+            User.__table__.update()
+            .where(User.id == user_id)
+            .values(is_active=is_active, updated_at=updated_at)
+        )
+        await self.db.commit()
+
+    async def update_user_role(self, user_id: UUID, role: Optional[str], is_active: bool, updated_at: datetime) -> None:
+        """Update user role and active status."""
+        await self._set_search_path()
+        await self.db.execute(
+            User.__table__.update()
+            .where(User.id == user_id)
+            .values(role=role, is_active=is_active, updated_at=updated_at)
+        )
+        await self.db.commit()

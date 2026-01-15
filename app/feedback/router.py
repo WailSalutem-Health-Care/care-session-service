@@ -2,14 +2,8 @@
 from uuid import UUID
 from typing import Optional
 from datetime import date, datetime, timedelta
-from io import BytesIO
-import pandas as pd
-from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
-from fastapi import APIRouter, Depends, status, Query, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, Depends, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import text, select
 from app.db.postgres import get_db
 from app.feedback.service import FeedbackService
 from fastapi import Response
@@ -33,6 +27,7 @@ from app.feedback.satisfaction import get_satisfaction_level, compute_metrics
 from app.auth.middleware import JWTPayload, verify_token, check_permission
 from app.db.models import Patient, User
 from app.utils.timezone import convert_to_cet
+
 
 router = APIRouter(
     prefix="/feedback",
