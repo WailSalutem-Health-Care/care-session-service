@@ -3,10 +3,8 @@ from uuid import UUID
 from datetime import datetime
 from typing import Optional, List, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, or_, text, func
+from sqlalchemy import select, and_, func, text
 from app.db.models import CareSession
-from sqlalchemy import select, and_, func
-
 from app.db.repository import BaseRepository
 
 
