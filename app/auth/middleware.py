@@ -17,7 +17,7 @@ from app.db.models import Organization, User
 
 # Initialize components
 security = HTTPBearer()
-keycloak_base = os.getenv("KEYCLOAK_BASE_URL") or os.getenv("KEYCLOAK_URL")
+keycloak_base = os.getenv("KEYCLOAK_BASE_URL") 
 jwt_verifier = JWTVerifier(
     keycloak_url=keycloak_base,
     realm=os.getenv("KEYCLOAK_REALM"),
