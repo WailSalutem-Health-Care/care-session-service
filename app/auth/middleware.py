@@ -17,10 +17,9 @@ from app.db.models import Organization, User, Patient
 
 # Initialize components
 security = HTTPBearer()
-keycloak_base = os.getenv("KEYCLOAK_BASE_URL") 
 jwt_verifier = JWTVerifier(
     keycloak_url=os.getenv("KEYCLOAK_BASE_URL"),
-    keycloak_url=keycloak_base,
+    # keycloak_url=keycloak_base,
     realm=os.getenv("KEYCLOAK_REALM"),
     algorithm=os.getenv("JWT_ALGORITHM", "RS256")
 )
