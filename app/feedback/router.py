@@ -26,6 +26,7 @@ from app.feedback.schemas import (
     TopCaregiverItem,
     CaregiverFeedbackItem,
     CaregiverFeedbackPage,
+    CaregiverAverageRatingResponse,
 )
 from app.db.models import Feedback
 from app.feedback.satisfaction import get_satisfaction_level, compute_metrics
@@ -478,4 +479,52 @@ async def delete_feedback(
     
     await service.delete_feedback(feedback_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/analytics/caregivers/{caregiver_id}/average", response_model=CaregiverAverageRatingResponse)
+async def get_caregiver_average_rating(
+    caregiver_id: UUID,
+    period: Optional[str] = Query("", enum=["daily", "weekly", "monthly"]),
+    start_date: Optional[date] = Query(None),
+    end_date: Optional[date] = Query(None),
+    db: AsyncSession = Depends(get_db),
+    jwt_payload: JWTPayload = Depends(verify_token),
+):
+    """Get caregiver's average rating for a period (daily, weekly, monthly)."""
+    check_permission(jwt_payload, "feedback:read")
+    
+    today = date.today()
+    
+    # Auto-calculate date range if not provided
+    if start_date is None or end_date is None:
+        if period == "daily":
+            start_date = today
+            end_date = today
+        elif period == "weekly":
+            weekday = today.weekday()
+            start_date = today - timedelta(days=weekday)
+            end_date = start_date + timedelta(days=6)
+        elif period == "monthly":
+            start_date = today.replace(day=1)
+            if today.month == 12:
+                end_date = today.replace(year=today.year + 1, month=1, day=1) - timedelta(days=1)
+            else:
+                end_date = today.replace(month=today.month + 1, day=1) - timedelta(days=1)
+    
+    service = FeedbackService(db, jwt_payload.tenant_schema)
+    avg_rating, total = await service.get_caregiver_average_rating(
+        caregiver_id=caregiver_id,
+        start_date=start_date,
+        end_date=end_date,
+    )
+    
+    return CaregiverAverageRatingResponse(
+        caregiver_id=caregiver_id,
+        period=period,
+        start_date=start_date.isoformat(),
+        end_date=end_date.isoformat(),
+        average_rating=round(avg_rating, 2) if avg_rating else None,
+        total_feedbacks=total,
+    )
+
 
