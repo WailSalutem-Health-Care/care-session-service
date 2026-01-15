@@ -19,6 +19,7 @@ from app.reports.schemas import (
 )
 from app.reports.repository import ReportsRepository
 from app.auth.middleware import JWTPayload, verify_token, check_permission
+from app.utils.timezone import convert_to_cet
 
 
 def get_reports_service(db: AsyncSession = Depends(get_db), jwt_payload: JWTPayload = Depends(verify_token)) -> ReportsService:

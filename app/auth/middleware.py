@@ -1,5 +1,6 @@
 """Authentication Middleware"""
 import os
+from uuid import UUID
 from jose import JWTError
 from fastapi import HTTPException, status, Depends, Header
 from fastapi.security import HTTPBearer
@@ -11,17 +12,54 @@ from app.auth.models import JWTPayload
 from app.auth.jwt_verifier import JWTVerifier
 from app.auth.permissions_manager import PermissionsManager
 from app.db.postgres import get_db
-from app.db.models import Organization
+from app.db.models import Organization, User, Patient
 
 
 # Initialize components
 security = HTTPBearer()
+keycloak_base = os.getenv("KEYCLOAK_BASE_URL") 
 jwt_verifier = JWTVerifier(
     keycloak_url=os.getenv("KEYCLOAK_BASE_URL"),
+    keycloak_url=keycloak_base,
     realm=os.getenv("KEYCLOAK_REALM"),
-    algorithm=os.getenv("JWT_ALGORITHM", "RS256")  
+    algorithm=os.getenv("JWT_ALGORITHM", "RS256")
 )
 permissions_manager = PermissionsManager()
+
+
+async def _lookup_internal_user_id(
+    auth_user_id: str,
+    tenant_schema: str,
+    db: AsyncSession
+) -> Optional[UUID]:
+    """
+    Look up internal user ID from authenticated user ID.
+    
+    Checks both Patient and User tables since different user types are stored in different tables.
+        
+    Returns:
+        User/Patient ID if found, None otherwise
+    """
+    try:
+        await db.execute(text(f'SET search_path TO "{tenant_schema}"'))
+        
+        # First try to find in Patient table
+        stmt = select(Patient.id).where(Patient.keycloak_user_id == UUID(auth_user_id))
+        result = await db.execute(stmt)
+        patient_id = result.scalar_one_or_none()
+        if patient_id:
+            return patient_id
+        
+        # If not found in Patient table, try User table (for caregivers, admins, etc.)
+        stmt = select(User.id).where(User.keycloak_user_id == UUID(auth_user_id))
+        result = await db.execute(stmt)
+        user_id = result.scalar_one_or_none()
+        if user_id:
+            return user_id
+        
+        return None
+    except Exception:
+        return None
 
 
 async def verify_token(
@@ -33,7 +71,7 @@ async def verify_token(
     Verify JWT token from Keycloak and extract payload.
     
     Expected JWT claims:
-    - sub: user_id
+    - sub: authenticated user ID (e.g., Keycloak user ID)
     - organizationID: organizationID (or X-Organization-ID header for SUPER_ADMIN)
     - realm_access.roles: list of role names
     """
@@ -84,8 +122,13 @@ async def verify_token(
                 # Fallback: construct from org_id (for backward compatibility)
                 tenant_schema = org_id if org_id.startswith("org_") else f"org_{org_id}"
         
+        # Look up internal user ID from authenticated user ID
+        auth_user_id = payload["sub"]
+        internal_user_id = await _lookup_internal_user_id(auth_user_id, tenant_schema, db)
+        
         return JWTPayload(
-            sub=payload["sub"],
+            sub=auth_user_id,
+            internal_user_id=internal_user_id,
             org_id=org_id,
             tenant_schema=tenant_schema,
             roles=roles,

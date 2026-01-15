@@ -58,10 +58,10 @@ class CareSessionRepository(BaseRepository):
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
     
-    async def get_by_id(self, session_id: UUID) -> Optional[CareSession]:
+    async def get_by_id(self, id: UUID) -> Optional[CareSession]:
         """Get care session by ID"""
         await self._set_search_path()
-        stmt = select(CareSession).where(CareSession.id == session_id)
+        stmt = select(CareSession).where(CareSession.id == id)
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
     
@@ -103,10 +103,10 @@ class CareSessionRepository(BaseRepository):
         await self.db.refresh(session)
         return session
     
-    async def delete(self, session_id: UUID) -> bool:
+    async def delete(self, id: UUID) -> bool:
         """Soft delete care session"""
         await self._set_search_path()
-        session = await self.get_by_id(session_id)
+        session = await self.get_by_id(id)
         if session:
             session.deleted_at = datetime.utcnow()
             await self.db.commit()

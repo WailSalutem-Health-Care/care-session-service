@@ -155,3 +155,34 @@ class FeedbackRepository(BaseRepository):
             }
             for row in result.all()
         ]
+    
+    async def get_caregiver_average_rating(
+        self,
+        caregiver_id: UUID,
+        start_date: date,
+        end_date: date,
+    ) -> Tuple[Optional[float], int]:
+        """Get caregiver's average rating for a date range."""
+        await self._set_search_path()
+        
+        date_col = cast(Feedback.created_at, Date)
+        stmt = select(
+            func.avg(Feedback.rating).label('average_rating'),
+            func.count(Feedback.id).label('total_feedbacks')
+        ).where(
+            and_(
+                Feedback.caregiver_id == caregiver_id,
+                date_col >= start_date,
+                date_col <= end_date
+            )
+        )
+        
+        result = await self.db.execute(stmt)
+        row = result.one()
+        
+        avg_rating = float(row.average_rating) if row.average_rating is not None else None
+        return avg_rating, int(row.total_feedbacks)
+    
+    
+
+

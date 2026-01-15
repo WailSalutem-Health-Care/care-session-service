@@ -7,7 +7,8 @@ from datetime import datetime
 
 class JWTPayload(BaseModel):
     """JWT token payload extracted from Keycloak"""
-    user_id: UUID = Field(..., alias="sub")
+    auth_user_id: UUID = Field(..., alias="sub")  # Keycloak user ID
+    internal_user_id: Optional[UUID] = None
     org_id: str
     tenant_schema: str
     roles: list[str] = []
