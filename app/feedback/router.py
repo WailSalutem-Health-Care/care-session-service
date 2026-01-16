@@ -18,8 +18,6 @@ from app.feedback.schemas import (
     PatientAverageRatingResponse,
     TopCaregiversResponse,
     TopCaregiverItem,
-    CaregiverFeedbackItem,
-    CaregiverFeedbackPage,
     CaregiverAverageRatingResponse,
 )
 from app.db.models import Feedback
