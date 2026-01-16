@@ -171,3 +171,15 @@ class CareSessionService:
             page=page,
             page_size=page_size,
         )
+    
+    async def delete_session(self, session_id: UUID) -> bool:
+        """
+        Delete a care session (soft delete - for developers/testing only).
+        
+        Args:
+            session_id: Session UUID to delete
+            
+        Returns:
+            True if deletion successful, False if session not found
+        """
+        return await self.repository.delete(session_id)
