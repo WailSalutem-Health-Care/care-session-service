@@ -66,18 +66,6 @@ class CareSessionService:
     async def get_session(self, session_id: UUID) -> CareSession:
         """Get a care session by UUID"""
         return await self._get_session_or_404(session_id)
-    
-    async def get_patient_with_session(self, session_id: UUID) -> dict:
-        """Get patient details for a care session"""
-        session = await self._get_session_or_404(session_id)
-        
-        # Get patient
-        await self.repository._set_search_path()
-        stmt = select(Patient).where(Patient.id == session.patient_id)
-        result = await self.db.execute(stmt)
-        patient = result.scalar_one_or_none()
-        
-        return {"session": session, "patient": patient}
 
     async def complete_session(
         self,
