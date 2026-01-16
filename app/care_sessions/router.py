@@ -183,3 +183,28 @@ async def update_care_session(
     )
     
     return to_response(session)
+
+
+@router.delete("/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_care_session(
+    session_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    jwt_payload: JWTPayload = Depends(verify_token),
+):
+    """
+    ⚠️ Delete a care session (Developers only - for testing/development).
+    
+    Required permission: care-session:admin (ORG_ADMIN, SUPER_ADMIN roles)
+    """
+    check_permission(jwt_payload, "care-session:admin")
+    
+    service = CareSessionService(db, jwt_payload.tenant_schema)
+    deleted = await service.delete_session(session_id)
+    
+    if not deleted:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Care session not found"
+        )
+    
+    return None
