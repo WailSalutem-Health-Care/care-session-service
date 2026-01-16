@@ -291,7 +291,7 @@ class ReportsService:
         data = []
         for session in sessions:
             data.append({
-                "Session ID": str(session.id),
+                "Session ID": str(session.session_id),
                 "Caregiver ID": str(session.caregiver_id),
                 "Caregiver Name": session.caregiver_full_name or "",
                 "Careplan Type": session.careplan_type or "",
@@ -328,7 +328,7 @@ class ReportsService:
                 y = height - 50
                 c.setFont("Helvetica", 10)
 
-            c.drawString(50, y, f"Session ID: {session.id}")
+            c.drawString(50, y, f"Session ID: {session.session_id}")
             c.drawString(50, y - 15, f"Caregiver: {session.caregiver_full_name or ''}")
             c.drawString(50, y - 30, f"Careplan Type: {session.careplan_type or ''}")
             c.drawString(50, y - 45, f"Check In: {session.check_in_time}")
