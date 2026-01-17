@@ -246,7 +246,7 @@ async def get_patient_metrics(
     )
 
 
-@router.get("/metrics/caregivers/top-performers/weekly", response_model=TopCaregiversResponse)
+@router.get("/metrics/top-caregivers/weekly", response_model=TopCaregiversResponse)
 async def get_top_caregivers_weekly(
     week_start: date = Query(..., description="Start of week - Monday (YYYY-MM-DD)"),
     db: AsyncSession = Depends(get_db),
@@ -281,27 +281,10 @@ async def get_top_caregivers_weekly(
         top_caregivers=top_caregivers,
     )
 
-@router.delete("/{feedback_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_feedback(
-    feedback_id: UUID,
-    db: AsyncSession = Depends(get_db),
-    jwt_payload: JWTPayload = Depends(verify_token),
-):
-    """
-    Delete a feedback. 
-    """
-    check_permission(jwt_payload, "feedback:delete")
-
-    service = FeedbackService(db, jwt_payload.tenant_schema)
-    
-    await service.delete_feedback(feedback_id)
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
-
-
-@router.get("/metrics/caregivers/{caregiver_id}/period", response_model=CaregiverAverageRatingResponse)
+@router.get("/metrics/caregivers/{caregiver_id:uuid}/period", response_model=CaregiverAverageRatingResponse)
 async def get_caregiver_metrics_period(
     caregiver_id: UUID,
-    period: Optional[str] = Query("", enum=["daily", "weekly", "monthly"]),
+    period: Optional[str] = Query(None, enum=["daily", "weekly", "monthly"]),
     start_date: Optional[date] = Query(None),
     end_date: Optional[date] = Query(None),
     db: AsyncSession = Depends(get_db),
@@ -313,7 +296,7 @@ async def get_caregiver_metrics_period(
     today = date.today()
     
     # Auto-calculate date range if not provided
-    if start_date is None or end_date is None:
+    if (start_date is None or end_date is None) and period:
         if period == "daily":
             start_date = today
             end_date = today
@@ -327,6 +310,12 @@ async def get_caregiver_metrics_period(
                 end_date = today.replace(year=today.year + 1, month=1, day=1) - timedelta(days=1)
             else:
                 end_date = today.replace(month=today.month + 1, day=1) - timedelta(days=1)
+    elif start_date is None or end_date is None:
+        # If no dates and no period provided, default to weekly
+        period = "weekly"
+        weekday = today.weekday()
+        start_date = today - timedelta(days=weekday)
+        end_date = start_date + timedelta(days=6)
     
     service = FeedbackService(db, jwt_payload.tenant_schema)
     avg_rating, total = await service.get_caregiver_average_rating(
@@ -343,5 +332,22 @@ async def get_caregiver_metrics_period(
         average_rating=round(avg_rating, 2) if avg_rating else None,
         total_feedbacks=total,
     )
+
+
+@router.delete("/{feedback_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_feedback(
+    feedback_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    jwt_payload: JWTPayload = Depends(verify_token),
+):
+    """
+    Delete a feedback. 
+    """
+    check_permission(jwt_payload, "feedback:delete")
+
+    service = FeedbackService(db, jwt_payload.tenant_schema)
+    
+    await service.delete_feedback(feedback_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

@@ -908,7 +908,7 @@ curl -X GET "http://localhost:8000/feedback/metrics/patients/6ba7b810-9dad-11d1-
 
 ## 7. Get Top Caregivers of the Week
 
-**GET** `/feedback/metrics/caregivers/top-performers/weekly`
+**GET** `/feedback/metrics/top-caregivers/weekly`
 
 ### Access Control
 - **Allowed Roles**: ORG_ADMIN, SUPER_ADMIN
