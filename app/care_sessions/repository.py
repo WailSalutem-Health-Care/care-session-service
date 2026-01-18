@@ -51,13 +51,6 @@ class CareSessionRepository(BaseRepository):
         await self.db.refresh(session)
         return session
 
-    async def get_by_session_id(self, session_id: str) -> Optional[CareSession]:
-        """Get care session by public session_id string"""
-        await self._set_search_path()
-        stmt = select(CareSession).where(CareSession.session_id == session_id)
-        result = await self.db.execute(stmt)
-        return result.scalar_one_or_none()
-    
     async def get_by_id(self, id: UUID) -> Optional[CareSession]:
         """Get care session by ID"""
         await self._set_search_path()
@@ -76,24 +69,6 @@ class CareSessionRepository(BaseRepository):
         )
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
-    
-    async def get_by_caregiver(self, caregiver_id: UUID, limit: int = 100) -> List[CareSession]:
-        """Get care sessions by caregiver"""
-        await self._set_search_path()
-        stmt = select(CareSession).where(
-            CareSession.caregiver_id == caregiver_id
-        ).order_by(CareSession.created_at.desc()).limit(limit)
-        result = await self.db.execute(stmt)
-        return result.scalars().all()
-    
-    async def get_by_patient(self, patient_id: UUID, limit: int = 100) -> List[CareSession]:
-        """Get care sessions by patient"""
-        await self._set_search_path()
-        stmt = select(CareSession).where(
-            CareSession.patient_id == patient_id
-        ).order_by(CareSession.created_at.desc()).limit(limit)
-        result = await self.db.execute(stmt)
-        return result.scalars().all()
     
     async def update(self, session: CareSession) -> CareSession:
         """Update care session"""
@@ -136,7 +111,7 @@ class CareSessionRepository(BaseRepository):
         if start_date:
             conditions.append(CareSession.check_in_time >= start_date)
         if end_date:
-            conditions.append(CareSession.check_in_time <= end_date)
+            conditions.append(CareSession.check_in_time < end_date)
         
         base_query = select(CareSession)
         if conditions:

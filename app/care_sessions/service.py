@@ -6,6 +6,7 @@ from sqlalchemy import select
 from app.db.models import CareSession
 from app.care_sessions.repository import CareSessionRepository
 from app.care_sessions.validators import SessionValidator
+from app.care_sessions.auto_complete import auto_complete_if_needed
 from app.care_sessions.exceptions import (
     CareSessionNotFoundException,
     DuplicateActiveSessionException,
@@ -64,20 +65,14 @@ class CareSessionService:
         return created_session
     
     async def get_session(self, session_id: UUID) -> CareSession:
-        """Get a care session by UUID"""
-        return await self._get_session_or_404(session_id)
-    
-    async def get_patient_with_session(self, session_id: UUID) -> dict:
-        """Get patient details for a care session"""
+        """Get a care session by UUID. Auto-completes if > 2 hours old."""
         session = await self._get_session_or_404(session_id)
         
-        # Get patient
-        await self.repository._set_search_path()
-        stmt = select(Patient).where(Patient.id == session.patient_id)
-        result = await self.db.execute(stmt)
-        patient = result.scalar_one_or_none()
+        # Auto-complete if expired
+        if auto_complete_if_needed(session):
+            await self.db.commit()
         
-        return {"session": session, "patient": patient}
+        return session
 
     async def complete_session(
         self,
@@ -174,7 +169,7 @@ class CareSessionService:
         if status:
             self.validator.validate_status(status)
         
-        return await self.repository.list_sessions(
+        sessions, total = await self.repository.list_sessions(
             caregiver_id=caregiver_id,
             patient_id=patient_id,
             status=status,
@@ -183,3 +178,21 @@ class CareSessionService:
             page=page,
             page_size=page_size,
         )
+        
+        # Auto-complete expired sessions
+        if any(auto_complete_if_needed(s) for s in sessions):
+            await self.db.commit()
+        
+        return sessions, total
+    
+    async def delete_session(self, session_id: UUID) -> bool:
+        """
+        Delete a care session (soft delete - for developers/testing only).
+        
+        Args:
+            session_id: Session UUID to delete
+            
+        Returns:
+            True if deletion successful, False if session not found
+        """
+        return await self.repository.delete(session_id)

@@ -18,8 +18,6 @@ from app.feedback.schemas import (
     PatientAverageRatingResponse,
     TopCaregiversResponse,
     TopCaregiverItem,
-    CaregiverFeedbackItem,
-    CaregiverFeedbackPage,
     CaregiverAverageRatingResponse,
 )
 from app.db.models import Feedback
@@ -85,14 +83,14 @@ async def create_feedback(
     return to_response(feedback)
 
 
-@router.get("/feedback/{feedback_id}", response_model=FeedbackResponse)
-async def get_feedback_by_id(
+@router.get("/{feedback_id}", response_model=FeedbackResponse)
+async def get_feedback(
     feedback_id: UUID,
     db: AsyncSession = Depends(get_db),
     jwt_payload: JWTPayload = Depends(verify_token),
 ):
     """
-    Get patient's own feedback by ID.
+    Get feedback by ID.
     
     Required permission: feedback:read (PATIENT role)
     """
@@ -113,7 +111,7 @@ async def list_feedbacks(
     jwt_payload: JWTPayload = Depends(verify_token),
 ):
     """
-    List all feedbacks (Admins only).
+    List all feedbacks with optional filtering.
     
     """
     check_permission(jwt_payload, "feedback:read")
@@ -142,18 +140,22 @@ async def list_feedbacks(
     )
 
 
-@router.get("/analytics/daily", response_model=DailyAverageListResponse)
-async def get_daily_averages(
+@router.get("/metrics/daily", response_model=DailyAverageListResponse)
+async def get_daily_metrics(
     start_date: date = Query(..., description="Start date (YYYY-MM-DD)"),
     end_date: date = Query(..., description="End date (YYYY-MM-DD)"),
     db: AsyncSession = Depends(get_db),
     jwt_payload: JWTPayload = Depends(verify_token),
 ):
     """
-    Get daily average feedback ratings for a date range.
+    Get daily average feedback metrics for a date range.
     
-    Returns daily averages and overall metrics for the period.
-    Required permission: feedback:read (Admin roles)
+    Returns:
+    - Daily averages by date
+    - Overall metrics for the entire period
+    - Satisfaction distribution and indices
+    
+    Required permission: feedback:read
     """
     check_permission(jwt_payload, "feedback:read")
     
@@ -181,7 +183,7 @@ async def get_daily_averages(
     )
 
 
-@router.get("/analytics/caregiver/{caregiver_id}/weekly", response_model=CaregiverWeeklyMetrics)
+@router.get("/metrics/caregivers/{caregiver_id}/weekly", response_model=CaregiverWeeklyMetrics)
 async def get_caregiver_weekly_metrics(
     caregiver_id: UUID,
     week_start: date = Query(..., description="Start of week - Monday (YYYY-MM-DD)"),
@@ -189,7 +191,7 @@ async def get_caregiver_weekly_metrics(
     jwt_payload: JWTPayload = Depends(verify_token),
 ):
     """
-    Get caregiver's average feedback for a specific week.
+    Get caregiver's weekly feedback metrics.
     
     Week runs Monday-Sunday. Returns metrics for the 7-day period.
     Required permission: feedback:read (Admin roles)
@@ -211,8 +213,8 @@ async def get_caregiver_weekly_metrics(
     )
 
 
-@router.get("/analytics/patient/{patient_id}/average", response_model=PatientAverageRatingResponse)
-async def get_patient_average_rating(
+@router.get("/metrics/patients/{patient_id}", response_model=PatientAverageRatingResponse)
+async def get_patient_metrics(
     patient_id: UUID,
     db: AsyncSession = Depends(get_db),
     jwt_payload: JWTPayload = Depends(verify_token),
@@ -244,8 +246,8 @@ async def get_patient_average_rating(
     )
 
 
-@router.get("/analytics/top-caregivers/weekly", response_model=TopCaregiversResponse)
-async def get_top_caregivers_of_week(
+@router.get("/metrics/top-caregivers/weekly", response_model=TopCaregiversResponse)
+async def get_top_caregivers_weekly(
     week_start: date = Query(..., description="Start of week - Monday (YYYY-MM-DD)"),
     db: AsyncSession = Depends(get_db),
     jwt_payload: JWTPayload = Depends(verify_token),
@@ -279,27 +281,10 @@ async def get_top_caregivers_of_week(
         top_caregivers=top_caregivers,
     )
 
-@router.delete("/delete/{feedback_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_feedback(
-    feedback_id: UUID,
-    db: AsyncSession = Depends(get_db),
-    jwt_payload: JWTPayload = Depends(verify_token),
-):
-    """
-    Delete a feedback. 
-    """
-    check_permission(jwt_payload, "feedback:delete")
-
-    service = FeedbackService(db, jwt_payload.tenant_schema)
-    
-    await service.delete_feedback(feedback_id)
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
-
-
-@router.get("/analytics/caregivers/{caregiver_id}/average", response_model=CaregiverAverageRatingResponse)
-async def get_caregiver_average_rating(
+@router.get("/metrics/caregivers/{caregiver_id:uuid}/period", response_model=CaregiverAverageRatingResponse)
+async def get_caregiver_metrics_period(
     caregiver_id: UUID,
-    period: Optional[str] = Query("", enum=["daily", "weekly", "monthly"]),
+    period: Optional[str] = Query(None, enum=["daily", "weekly", "monthly"]),
     start_date: Optional[date] = Query(None),
     end_date: Optional[date] = Query(None),
     db: AsyncSession = Depends(get_db),
@@ -311,7 +296,7 @@ async def get_caregiver_average_rating(
     today = date.today()
     
     # Auto-calculate date range if not provided
-    if start_date is None or end_date is None:
+    if (start_date is None or end_date is None) and period:
         if period == "daily":
             start_date = today
             end_date = today
@@ -325,6 +310,12 @@ async def get_caregiver_average_rating(
                 end_date = today.replace(year=today.year + 1, month=1, day=1) - timedelta(days=1)
             else:
                 end_date = today.replace(month=today.month + 1, day=1) - timedelta(days=1)
+    elif start_date is None or end_date is None:
+        # If no dates and no period provided, default to weekly
+        period = "weekly"
+        weekday = today.weekday()
+        start_date = today - timedelta(days=weekday)
+        end_date = start_date + timedelta(days=6)
     
     service = FeedbackService(db, jwt_payload.tenant_schema)
     avg_rating, total = await service.get_caregiver_average_rating(
@@ -341,5 +332,22 @@ async def get_caregiver_average_rating(
         average_rating=round(avg_rating, 2) if avg_rating else None,
         total_feedbacks=total,
     )
+
+
+@router.delete("/{feedback_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_feedback(
+    feedback_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    jwt_payload: JWTPayload = Depends(verify_token),
+):
+    """
+    Delete a feedback. 
+    """
+    check_permission(jwt_payload, "feedback:delete")
+
+    service = FeedbackService(db, jwt_payload.tenant_schema)
+    
+    await service.delete_feedback(feedback_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
