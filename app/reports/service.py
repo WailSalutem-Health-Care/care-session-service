@@ -97,7 +97,7 @@ class ReportsService:
         self,
         start_date: datetime,
         end_date: datetime,
-        limit: int | None = 100,
+        limit: Optional[int] = 100,
         cursor: Optional[str] = None,
     ) -> Tuple[List[CareSessionReportItem], Optional[str]]:
         """Get reports for care sessions in a specific period"""
@@ -561,7 +561,7 @@ class ReportsService:
 
     async def get_all_time_session_report(
         self,
-        limit: int | None = 100,
+        limit: Optional[int] = 100,
         cursor: Optional[str] = None,
     ) -> Tuple[List[CareSessionReportItem], Optional[str]]:
         """Get reports for all care sessions"""

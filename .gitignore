@@ -21,3 +21,8 @@ app/**/__pycache__/
 *.pyc
 *.pyc
 
+# Test coverage reports
+coverage.xml
+.coverage
+htmlcov/
+

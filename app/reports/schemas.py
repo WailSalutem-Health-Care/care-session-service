@@ -15,12 +15,12 @@ class CareSessionReportItem(BaseModel):
     caregiver_full_name: Optional[str] = None
     caregiver_email: Optional[str] = None
     check_in_time: datetime
-    check_out_time: datetime | None = None
+    check_out_time: Optional[datetime] = None
     duration_minutes: Optional[int] = None
     status: str
-    caregiver_notes: str | None = None
+    caregiver_notes: Optional[str] = None
     created_at: datetime
-    updated_at: datetime | None = None
+    updated_at: Optional[datetime] = None
 
 
 class CareSessionReportPage(BaseModel):
@@ -72,7 +72,7 @@ class PatientSessionItem(BaseModel):
     caregiver_full_name: Optional[str] = None
     careplan_type: Optional[str] = None
     check_in_time: datetime
-    check_out_time: datetime | None = None
+    check_out_time: Optional[datetime] = None
     duration_minutes: Optional[int] = None
     status: str
     rating: Optional[int] = None

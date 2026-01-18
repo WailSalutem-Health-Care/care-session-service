@@ -1,12 +1,13 @@
 """Timezone utilities for converting UTC to European timezone"""
 from datetime import datetime
+from typing import Optional
 import pytz
 
 # European timezone (handles CET/CEST automatically)
 EUROPE_TZ = pytz.timezone('Europe/Paris')
 
 
-def convert_to_cet(dt: datetime | None) -> datetime | None:
+def convert_to_cet(dt: Optional[datetime]) -> Optional[datetime]:
     """
     Convert UTC naive datetime to CET (Europe/Paris) for API display.
     
