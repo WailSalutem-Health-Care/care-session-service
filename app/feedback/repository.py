@@ -5,18 +5,14 @@ from datetime import date, datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, text, func, and_, cast, Date
 from app.db.models import Feedback
+from app.db.repository import BaseRepository
 
 
-class FeedbackRepository:
+class FeedbackRepository(BaseRepository):
     """Repository for feedback database operations"""
     
     def __init__(self, db: AsyncSession, tenant_schema: str):
-        self.db = db
-        self.tenant_schema = tenant_schema
-    
-    async def _set_search_path(self):
-        """Set PostgreSQL search path to tenant schema"""
-        await self.db.execute(text(f'SET search_path TO "{self.tenant_schema}", public'))
+        super().__init__(db, tenant_schema, include_public=True)
     
     async def create(self, feedback: Feedback) -> Feedback:
         """Create new feedback"""
@@ -159,3 +155,34 @@ class FeedbackRepository:
             }
             for row in result.all()
         ]
+    
+    async def get_caregiver_average_rating(
+        self,
+        caregiver_id: UUID,
+        start_date: date,
+        end_date: date,
+    ) -> Tuple[Optional[float], int]:
+        """Get caregiver's average rating for a date range."""
+        await self._set_search_path()
+        
+        date_col = cast(Feedback.created_at, Date)
+        stmt = select(
+            func.avg(Feedback.rating).label('average_rating'),
+            func.count(Feedback.id).label('total_feedbacks')
+        ).where(
+            and_(
+                Feedback.caregiver_id == caregiver_id,
+                date_col >= start_date,
+                date_col <= end_date
+            )
+        )
+        
+        result = await self.db.execute(stmt)
+        row = result.one()
+        
+        avg_rating = float(row.average_rating) if row.average_rating is not None else None
+        return avg_rating, int(row.total_feedbacks)
+    
+    
+
+

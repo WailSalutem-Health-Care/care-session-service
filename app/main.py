@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title="Care Session Service")
 
 # Configure CORS
-allowed_origins_str = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000")
+allowed_origins_str = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,https://wailsalutem-web-ui.netlify.app")
 allowed_origins = [origin.strip() for origin in allowed_origins_str.split(",")]
 
 app.add_middleware(

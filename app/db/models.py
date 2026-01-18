@@ -59,6 +59,7 @@ class Patient(Base):
     __table_args__ = {'extend_existing': True}
     
     id = Column(UUID(as_uuid=True), primary_key=True)
+    keycloak_user_id = Column(UUID(as_uuid=True), unique=True, nullable=False, index=True)
     first_name = Column(String(255), nullable=False)
     last_name = Column(String(255), nullable=False)
     email = Column(String(255), nullable=True)

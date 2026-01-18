@@ -71,27 +71,6 @@ class CaregiverWeeklyMetrics(BaseModel):
     satisfaction_levels: Dict[str, int]  # Count by satisfaction level
 
 
-class CaregiverFeedbackItem(BaseModel):
-    """Feedback item for caregiver reports."""
-    id: UUID
-    caregiver_id: UUID
-    caregiver_full_name: str | None = None
-    patient_id: UUID
-    patient_full_name: str | None = None
-    rating: int
-    comment: str | None = None
-    session_date: datetime
-    feedback_date: datetime
-
-
-class CaregiverFeedbackPage(BaseModel):
-    """Paginated caregiver feedback."""
-    items: List[CaregiverFeedbackItem]
-    total: int
-    limit: int
-    offset: int
-
-
 class PatientAverageRatingResponse(BaseModel):
     """Patient's all-time average rating"""
     patient_id: UUID
@@ -114,3 +93,14 @@ class TopCaregiversResponse(BaseModel):
     week_start: str  # YYYY-MM-DD (Monday)
     week_end: str  # YYYY-MM-DD (Sunday)
     top_caregivers: List[TopCaregiverItem]
+
+
+class CaregiverAverageRatingResponse(BaseModel):
+    """Caregiver's average rating for a period"""
+    caregiver_id: UUID
+    period: str  # 'daily', 'weekly', 'monthly'
+    start_date: str
+    end_date: str
+    average_rating: Optional[float]
+    total_feedbacks: int
+
