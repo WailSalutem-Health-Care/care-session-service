@@ -17,10 +17,10 @@ class CompleteCareSessionRequest(BaseModel):
 
 class UpdateCareSessionRequest(BaseModel):
     """Request to update a care session (Admin only)"""
-    check_in_time: datetime | None = None
-    check_out_time: datetime | None = None
-    caregiver_notes: str | None = None
-    status: str | None = None  # in_progress | completed
+    check_in_time: Optional[datetime] = None
+    check_out_time: Optional[datetime] = None
+    caregiver_notes: Optional[str] = None
+    status: Optional[str] = None  # in_progress | completed
 
 
 class CareSessionResponse(BaseModel):
@@ -30,11 +30,11 @@ class CareSessionResponse(BaseModel):
     patient_id: UUID
     caregiver_id: UUID
     check_in_time: datetime
-    check_out_time: datetime | None = None
+    check_out_time: Optional[datetime] = None
     status: str  # in_progress | completed
-    caregiver_notes: str | None = None
+    caregiver_notes: Optional[str] = None
     created_at: datetime
-    updated_at: datetime | None = None
+    updated_at: Optional[datetime] = None
 
 
 class CareSessionListResponse(BaseModel):

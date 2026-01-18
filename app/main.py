@@ -1,14 +1,12 @@
 from dotenv import load_dotenv
 import os
+import logging
 
-# Only load .env file in development (when running locally)
-# In production (K8s), environment variables come from ConfigMap/Secrets
 if os.path.exists('.env'):
     load_dotenv()
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-import logging
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -16,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Care Session Service")
 
-# Configure CORS
+# CORS
 allowed_origins_str = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,https://wailsalutem-web-ui.netlify.app")
 allowed_origins = [origin.strip() for origin in allowed_origins_str.split(",")]
 
@@ -24,8 +22,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],  # Allow all methods (GET, POST, PUT, DELETE, etc.)
-    allow_headers=["*"],  # Allow all headers
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Import and include routers with error handling
@@ -50,7 +48,22 @@ try:
 except Exception as e:
     logger.error(f"Failed to load feedback router: {e}")
 
+
 @app.get("/health")
-def health():
-    return {"status": "ok", "service": "care-session-service"}
+async def health():
+    """Health check with dependency status"""
+    status = {"status": "healthy", "service": "care-session-service", "dependencies": {}}
+
+    # Check database
+    try:
+        from app.db.postgres import engine
+        from sqlalchemy import text
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+        status["dependencies"]["database"] = {"status": "healthy"}
+    except Exception as e:
+        status["status"] = "degraded"
+        status["dependencies"]["database"] = {"status": "unhealthy", "error": str(e)}
+
+    return status
 

@@ -4,17 +4,28 @@ metadata:
   name: wailsalutem-backend-config
   namespace: wailsalutem-suite
 data:
+  # Database configuration
   DB_HOST: postgresql
   DB_PORT: "5432"
   DB_NAME: WailSalutem_Suite_DB
 
+  # RabbitMQ configuration
   RABBITMQ_HOST: rabbitmq
   RABBITMQ_PORT: "5672"
   
+  # Keycloak authentication
   KEYCLOAK_BASE_URL: https://keycloak-wailsalutem-suite.apps.inholland-minor.openshift.eu
   KEYCLOAK_REALM: wailsalutem
   KEYCLOAK_API_CLIENT_ID: wailsalutem-api
   KEYCLOAK_ADMIN_CLIENT_ID: wailsalutem-admin
   JWT_ALGORITHM: RS256
   
+  # CORS configuration
   ALLOWED_ORIGINS: "http://localhost:3000,https://wailsalutem-web-ui.netlify.app"
+  
+  # Application configuration
+  APP_ENV: production
+  ENABLE_METRICS: "1"
+  
+  # Sentry configuration (optional - set SENTRY_DSN in secret if needed)
+  SENTRY_TRACES_SAMPLE_RATE: "0.1"
