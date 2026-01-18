@@ -33,7 +33,7 @@ class CareSessionService:
         self,
         tag_id: str,
         caregiver_id: UUID,
-        session_id: str | None = None,
+        session_id: Optional[str] = None,
     ) -> CareSession:
         """
         Create a new care session by scanning an NFC tag.
@@ -106,10 +106,10 @@ class CareSessionService:
     async def update_session(
         self,
         session_id: UUID,
-        check_in_time: datetime | None = None,
-        check_out_time: datetime | None = None,
-        caregiver_notes: str | None = None,
-        status: str | None = None,
+        check_in_time: Optional[datetime] = None,
+        check_out_time: Optional[datetime] = None,
+        caregiver_notes: Optional[str] = None,
+        status: Optional[str] = None,
     ) -> CareSession:
         """
         Update a care session (Admins only - for corrections/adjustments).
