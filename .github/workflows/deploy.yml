@@ -30,6 +30,9 @@ jobs:
       - name: Lint
         run: flake8 app/ tests/ --max-line-length=120
       
+      - name: Set PYTHONPATH
+        run: echo "PYTHONPATH=$PYTHONPATH:$(pwd)" >> $GITHUB_ENV
+      
       - name: Run tests
         env:
           DB_USER: test
