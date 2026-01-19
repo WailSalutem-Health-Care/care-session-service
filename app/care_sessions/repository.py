@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, func, text
 from app.db.models import CareSession
 from app.db.repository import BaseRepository
+from app.utils.timezone import now_cet
 
 
 class CareSessionRepository(BaseRepository):
@@ -71,19 +72,19 @@ class CareSessionRepository(BaseRepository):
         return result.scalar_one_or_none()
     
     async def update(self, session: CareSession) -> CareSession:
-        """Update care session"""
+        """Update care session with CET timestamp"""
         await self._set_search_path()
-        session.updated_at = datetime.utcnow()
+        session.updated_at = now_cet()
         await self.db.commit()
         await self.db.refresh(session)
         return session
     
     async def delete(self, id: UUID) -> bool:
-        """Soft delete care session"""
+        """Soft delete care session with CET timestamp"""
         await self._set_search_path()
         session = await self.get_by_id(id)
         if session:
-            session.deleted_at = datetime.utcnow()
+            session.deleted_at = now_cet()
             await self.db.commit()
             return True
         return False

@@ -1,6 +1,7 @@
 from uuid import UUID
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, Query, HTTPException
+from app.utils.timezone import now_cet
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.postgres import get_db
@@ -35,7 +36,7 @@ router = APIRouter(
 
 
 def _resolve_period_range(period: str) -> tuple[datetime, datetime]:
-    now = datetime.utcnow()
+    now = now_cet()
     if period == "day":
         start = datetime(now.year, now.month, now.day)
         end = start + timedelta(days=1) - timedelta(microseconds=1)

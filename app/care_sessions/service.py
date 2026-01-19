@@ -12,6 +12,7 @@ from app.care_sessions.exceptions import (
     DuplicateActiveSessionException,
 )
 from app.db.models import Patient
+from app.utils.timezone import now_cet
 
 
 class CareSessionService:
@@ -53,11 +54,12 @@ class CareSessionService:
         if existing_session:
             raise DuplicateActiveSessionException(patient_id)
         
-        # Create session
+        # Create session with CET timestamp
         new_session = CareSession(
             patient_id=patient_id,
             caregiver_id=caregiver_id,
             status="in_progress",
+            check_in_time=now_cet(),  # Explicitly set check_in_time in CET
         )
         # Only set public session_id if provided; otherwise let the model/DB default generate it
         if session_id:
@@ -96,8 +98,8 @@ class CareSessionService:
         self.validator.validate_session_in_progress(session)
         self.validator.validate_caregiver_ownership(session, caregiver_id)
         
-        # Update session
-        session.check_out_time = datetime.utcnow()
+        # Update session with CET timestamp
+        session.check_out_time = now_cet()
         session.caregiver_notes = caregiver_notes
         session.status = "completed"
         

@@ -37,7 +37,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Care Session Service", lifespan=lifespan)
 
 # CORS
-allowed_origins_str = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,https://wailsalutem-web-ui.netlify.app")
+allowed_origins_str = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,https://wailsalutem-web-ui.netlify.app,https://wailsalutem-suite.netlify.app")
 allowed_origins = [origin.strip() for origin in allowed_origins_str.split(",")]
 
 app.add_middleware(
