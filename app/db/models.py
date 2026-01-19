@@ -5,6 +5,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from app.db.postgres import Base
 from app.utils.timezone import now_cet
 
+
 class CareSession(Base):
     """
     Care session tracking for caregiver check-ins/check-outs.
@@ -24,6 +25,7 @@ class CareSession(Base):
     created_at = Column(DateTime, default=now_cet, nullable=False)
     updated_at = Column(DateTime, default=None, nullable=True)  # Updated explicitly in repository
     deleted_at = Column(DateTime, nullable=True)
+
 
 class Organization(Base):
     """

@@ -1,6 +1,7 @@
 """Timezone utilities for CET (Central European Time) operations"""
 from datetime import datetime
 from typing import Optional
+
 import pytz
 
 # European timezone (handles CET/CEST automatically)
@@ -11,7 +12,7 @@ def now_cet() -> datetime:
     """
     Get current time in CET (Central European Time).
     Handles CET/CEST (daylight saving time) automatically.
-    
+
     Returns:
         Naive datetime in CET timezone
     """
@@ -21,10 +22,10 @@ def now_cet() -> datetime:
 def convert_to_cet(dt: Optional[datetime]) -> Optional[datetime]:
     """
     Convert UTC naive datetime to CET (Europe/Paris) for API display.
-    
+
     Args:
         dt: Naive datetime assumed to be in UTC, or None
-        
+
     Returns:
         Naive datetime in CET timezone, or None if input is None
     """
