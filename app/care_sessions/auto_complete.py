@@ -10,11 +10,11 @@ def auto_complete_if_needed(session: CareSession) -> bool:
     """Auto-complete session if > 2 hours old (using CET timezone)."""
     if session.status != "in_progress":
         return False
-    
+
     cutoff = now_cet() - timedelta(hours=AUTO_COMPLETE_HOURS)
     if session.check_in_time >= cutoff:
         return False
-    
+
     # Auto-complete: mark as completed with CET timestamp
     session.status = "completed"
     session.check_out_time = now_cet()
@@ -22,5 +22,5 @@ def auto_complete_if_needed(session: CareSession) -> bool:
         f"{session.caregiver_notes or ''}\n"
         f"[AUTO-COMPLETED] Session exceeded {AUTO_COMPLETE_HOURS} hour timeout"
     ).strip()
-    
+
     return True

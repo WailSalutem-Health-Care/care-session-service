@@ -11,10 +11,10 @@ from app.utils.timezone import now_cet
 
 class CareSessionRepository(BaseRepository):
     """Repository for care session database operations"""
-    
+
     def __init__(self, db: AsyncSession, tenant_schema: str):
         super().__init__(db, tenant_schema, include_public=False)
-    
+
     async def create(self, session: CareSession) -> CareSession:
         """Create a new care session"""
         await self._set_search_path()
@@ -28,10 +28,10 @@ class CareSessionRepository(BaseRepository):
                 # Rollback the failed transaction before creating sequence
                 await self.db.rollback()
                 await self._set_search_path()
-                
+
                 # Create sequence if it doesn't exist
                 await self.db.execute(text(f"CREATE SEQUENCE IF NOT EXISTS {seq_name} START 1"))
-                
+
                 # Get max session ID and set sequence value
                 max_res = await self.db.execute(
                     text(
@@ -40,7 +40,7 @@ class CareSessionRepository(BaseRepository):
                 )
                 maxv = max_res.scalar() or 0
                 await self.db.execute(text(f"SELECT setval('{seq_name}', :start, false)").bindparams(start=maxv + 1))
-                
+
                 # Now get the next value
                 res = await self.db.execute(text(f"SELECT nextval('{seq_name}') AS val"))
                 val = res.scalar_one()
@@ -58,19 +58,16 @@ class CareSessionRepository(BaseRepository):
         stmt = select(CareSession).where(CareSession.id == id)
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
-    
+
     async def get_active_by_patient(self, patient_id: UUID) -> Optional[CareSession]:
         """Get active care session for a patient"""
         await self._set_search_path()
         stmt = select(CareSession).where(
-            and_(
-                CareSession.patient_id == patient_id,
-                CareSession.status == "in_progress"
-            )
+            and_(CareSession.patient_id == patient_id, CareSession.status == "in_progress")
         )
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
-    
+
     async def update(self, session: CareSession) -> CareSession:
         """Update care session with CET timestamp"""
         await self._set_search_path()
@@ -78,7 +75,7 @@ class CareSessionRepository(BaseRepository):
         await self.db.commit()
         await self.db.refresh(session)
         return session
-    
+
     async def delete(self, id: UUID) -> bool:
         """Soft delete care session with CET timestamp"""
         await self._set_search_path()
@@ -88,7 +85,7 @@ class CareSessionRepository(BaseRepository):
             await self.db.commit()
             return True
         return False
-    
+
     async def list_sessions(
         self,
         caregiver_id: Optional[UUID] = None,
@@ -101,7 +98,7 @@ class CareSessionRepository(BaseRepository):
     ) -> Tuple[List[CareSession], int]:
         """List care sessions with filters and pagination."""
         await self._set_search_path()
-        
+
         conditions = []
         if caregiver_id:
             conditions.append(CareSession.caregiver_id == caregiver_id)
@@ -113,20 +110,18 @@ class CareSessionRepository(BaseRepository):
             conditions.append(CareSession.check_in_time >= start_date)
         if end_date:
             conditions.append(CareSession.check_in_time < end_date)
-        
+
         base_query = select(CareSession)
         if conditions:
             base_query = base_query.where(and_(*conditions))
-        
-        count_result = await self.db.execute(
-            select(func.count()).select_from(base_query.subquery())
-        )
+
+        count_result = await self.db.execute(select(func.count()).select_from(base_query.subquery()))
         total = count_result.scalar()
-        
+
         offset = (page - 1) * page_size
         stmt = base_query.order_by(CareSession.check_in_time.desc()).offset(offset).limit(page_size)
-        
+
         result = await self.db.execute(stmt)
         sessions = result.scalars().all()
-        
+
         return sessions, total
