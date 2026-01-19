@@ -6,11 +6,13 @@ class NFCTagCache:
     def __init__(self):
         self._cache: dict[str, str] = {}
     
-    def store(self, tag_id: str, patient_id: str, tenant_schema: str) -> None:
-        self._cache[f"{tenant_schema}:{tag_id}"] = patient_id
+    def store(self, tag_id: str, patient_id: str) -> None:
+        """Store tag_id -> patient_id mapping (global, no tenant namespace)"""
+        self._cache[tag_id] = patient_id
     
-    def get_patient_id(self, tag_id: str, tenant_schema: str) -> Optional[UUID]:
-        patient_id = self._cache.get(f"{tenant_schema}:{tag_id}")
+    def get_patient_id(self, tag_id: str) -> Optional[UUID]:
+        """Get patient_id by tag_id (global lookup, no tenant context needed)"""
+        patient_id = self._cache.get(tag_id)
         return UUID(patient_id) if patient_id else None
 
 
