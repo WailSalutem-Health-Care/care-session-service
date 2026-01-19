@@ -19,8 +19,9 @@ class CareSessionService:
     
     def __init__(self, db: AsyncSession, tenant_schema: str):
         self.db = db
+        self.tenant_schema = tenant_schema
         self.repository = CareSessionRepository(db, tenant_schema)
-        self.validator = SessionValidator(db, self.repository)
+        self.validator = SessionValidator(db, self.repository, tenant_schema)
     
     async def _get_session_or_404(self, id: UUID) -> CareSession:
         """Get session by UUID or raise 404"""
@@ -38,22 +39,23 @@ class CareSessionService:
         """
         Create a new care session by scanning an NFC tag.
         
-        Steps:
-        1. Validate NFC tag exists and is active
-        2. Check for duplicate active sessions
-        3. Create session record
+        Flow:
+        1. Caregiver logs in via Keycloak → gets JWT with caregiver_id
+        2. Caregiver scans NFC tag → mobile app sends tag_id to this endpoint
+        3. This service gets patient_id from NFC event cache (via RabbitMQ)
+        4. Creates session with caregiver_id (from JWT) + patient_id (from NFC event)
         """
-        # Validate NFC tag
-        nfc_tag = await self.validator.validate_and_get_nfc_tag(tag_id)
+        # Get patient_id from NFC event cache (populated by RabbitMQ consumer)
+        patient_id = self.validator.get_patient_id_from_nfc_event(tag_id)
         
         # Check for duplicate active sessions
-        existing_session = await self.repository.get_active_by_patient(nfc_tag.patient_id)
+        existing_session = await self.repository.get_active_by_patient(patient_id)
         if existing_session:
-            raise DuplicateActiveSessionException(nfc_tag.patient_id)
+            raise DuplicateActiveSessionException(patient_id)
         
         # Create session
         new_session = CareSession(
-            patient_id=nfc_tag.patient_id,
+            patient_id=patient_id,
             caregiver_id=caregiver_id,
             status="in_progress",
         )
