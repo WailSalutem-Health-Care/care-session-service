@@ -29,3 +29,15 @@ data:
   
   # Sentry configuration (optional - set SENTRY_DSN in secret if needed)
   SENTRY_TRACES_SAMPLE_RATE: "0.1"
+  
+  ## OpenTelemetry Configuration
+  OTEL_EXPORTER_OTLP_ENDPOINT: "otel-collector.observability.svc.cluster.local:4317"
+  OTEL_SERVICE_NAME: "care-session-service"
+  OTEL_SERVICE_NAMESPACE: "wailsalutem"
+  OTEL_SERVICE_VERSION: "1.0.0"
+  ENVIRONMENT: "production"
+  OTEL_TRACES_SAMPLER: "always_on"
+  OTEL_METRICS_EXPORT_INTERVAL: "30s"
+  OTEL_TRACES_EXPORTER: "otlp"
+  OTEL_METRICS_EXPORTER: "otlp"
+  OTEL_EXPORTER_OTLP_INSECURE: "true"
