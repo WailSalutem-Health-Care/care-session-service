@@ -27,7 +27,7 @@ class CareSessionResponse(BaseModel):
     caregiver_id: UUID
     check_in_time: datetime
     check_out_time: Optional[datetime] = None
-    status: str
+    status: str  # in_progress | completed
     caregiver_notes: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
