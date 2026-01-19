@@ -125,6 +125,12 @@ def error_recovery_client(tmp_path, monkeypatch):
 
     asyncio.get_event_loop().run_until_complete(insert_seed())
 
+    # Populate NFC cache with test data (the service uses cache, not DB lookup)
+    from app.messaging.nfc_cache import get_nfc_cache
+    nfc_cache = get_nfc_cache()
+    nfc_cache.store("test-tag", patient_id, None)  # tenant_schema is None in UserPayload
+    # Note: inactive-tag is intentionally NOT added to cache to test error recovery
+
     # Provide async DB dependency override
     async def _get_db():
         async with AsyncSessionLocal() as session:

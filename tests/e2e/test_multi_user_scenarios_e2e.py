@@ -153,6 +153,13 @@ def multi_user_client(tmp_path, monkeypatch):
 
     asyncio.get_event_loop().run_until_complete(insert_seed())
 
+    # Populate NFC cache with test data (the service uses cache, not DB lookup)
+    from app.messaging.nfc_cache import get_nfc_cache
+    nfc_cache = get_nfc_cache()
+    nfc_cache.store("tag-patient1", patient1_id, None)
+    nfc_cache.store("tag-patient2", patient2_id, None)
+    nfc_cache.store("tag-patient3", patient3_id, None)
+
     # Provide async DB dependency override
     async def _get_db():
         async with AsyncSessionLocal() as session:

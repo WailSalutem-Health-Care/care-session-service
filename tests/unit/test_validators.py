@@ -12,6 +12,9 @@ from app.care_sessions.exceptions import (
 )
 from app.db.models import NFCTag, CareSession
 
+# Test constant for tenant schema
+TEST_TENANT_SCHEMA = "test_schema"
+
 
 @pytest.fixture
 def dummy_nfc_tag():
