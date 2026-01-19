@@ -1,120 +1,105 @@
-import os
 import pytest
+import tempfile
 from unittest.mock import AsyncMock, MagicMock
-from types import SimpleNamespace
-from datetime import datetime
-
-# Ensure DB env vars exist so importing db.postgres (engine creation) doesn't error during tests
-os.environ.setdefault("DB_USER", "test")
-os.environ.setdefault("DB_PASSWORD", "test")
-os.environ.setdefault("DB_HOST", "localhost")
-os.environ.setdefault("DB_PORT", "5432")
-os.environ.setdefault("DB_NAME", "testdb")
+from httpx import AsyncClient, ASGITransport
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy.pool import StaticPool
+from app.main import app
+from app.db.models import Base
+from app.db.postgres import get_db
 
 
-@pytest.fixture
-def fake_db():
-    """A lightweight AsyncSession-like mock with common methods used by the code under test."""
-    db = AsyncMock()
-
-    # Provide common DB coroutine behaviors used by repository/service
-    async def fake_execute(stmt):
-        # Default: return a result-like object with scalar_one_or_none/scalars
-        class DummyResult:
-            def __init__(self, val=None):
-                self._val = val
-
-            def scalar_one_or_none(self):
-                return self._val
-
-            def scalar(self):
-                return self._val
-
-            def scalars(self):
-                class _S:
-                    def __init__(self, vals):
-                        self._vals = vals or []
-
-                    def all(self):
-                        return self._vals
-
-                    def __iter__(self):
-                        return iter(self._vals)
-
-                return _S([])
-
-        return DummyResult()
-
-    db.execute.side_effect = fake_execute
-    db.add = AsyncMock()
-    db.commit = AsyncMock()
-    db.rollback = AsyncMock()
-    db.refresh = AsyncMock()
-    return db
-
-
-@pytest.fixture
-def fake_jwt_payload():
-    # Minimal object with attributes expected by router/service
-    return SimpleNamespace(
-        internal_user_id="00000000-0000-0000-0000-000000000000",
-        tenant_schema="test_schema",
-        permissions=[
-            "care-session:create",
-            "care-session:read",
-            "care-session:update",
-            "care-session:admin",
-            "care-session:report",
-            # Feedback permissions used by feedback router tests
-            "feedback:create",
-            "feedback:read",
-            "feedback:delete",
-        ],
+# ============== E2E Tests: SQLite with temp files ==============
+@pytest.fixture(scope="function")
+async def e2e_db_session():
+    """SQLite session for E2E tests."""
+    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+        db_path = f.name
+    
+    engine = create_async_engine(
+        f"sqlite+aiosqlite:///{db_path}",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
     )
+    
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    
+    session_maker = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    async with session_maker() as session:
+        yield session
+        await session.rollback()
+    
+    await engine.dispose()
 
 
-@pytest.fixture
-def dummy_care_session():
-    # Simple object used as a return value from mocked service/repo
-    return SimpleNamespace(
-        id="11111111-1111-1111-1111-111111111111",
-        session_id="CS-0001",
-        patient_id="22222222-2222-2222-2222-222222222222",
-        caregiver_id="33333333-3333-3333-3333-333333333333",
-        check_in_time=datetime.utcnow(),
-        check_out_time=None,
-        status="in_progress",
-        caregiver_notes=None,
-        created_at=datetime.utcnow(),
-        updated_at=None,
-    )
-
-
-@pytest.fixture
-def client_with_care_session_service(monkeypatch, fake_db, fake_jwt_payload):
-    """Reusable TestClient + patched CareSessionService fixture for care_sessions router tests.
-
-    - Overrides `get_db` and `verify_token` with provided fixtures
-    - Patches `app.care_sessions.router.CareSessionService` to return an AsyncMock service
-    - Yields (client, service)
-    """
-    from app.care_sessions import router as cs_router
-    from app.auth.middleware import verify_token
-    from app.db.postgres import get_db
-    from fastapi.testclient import TestClient
-    from unittest.mock import AsyncMock
-
-    service = AsyncMock()
-
-    # Override dependencies used by the router
-    app = __import__("app.main", fromlist=["app"]).app
-    app.dependency_overrides[get_db] = lambda: fake_db
-    app.dependency_overrides[verify_token] = lambda: fake_jwt_payload
-
-    # Patch the CareSessionService used inside the router to return our mock
-    monkeypatch.setattr(cs_router, "CareSessionService", lambda db, schema: service)
-
-    with TestClient(app) as client:
-        yield client, service
-
+@pytest.fixture(scope="function")
+async def e2e_client(e2e_db_session):
+    """E2E test client with real SQLite DB."""
+    async def override_get_db():
+        yield e2e_db_session
+    
+    app.dependency_overrides[get_db] = override_get_db
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        yield ac
     app.dependency_overrides.clear()
+
+
+# ============== Integration/Unit Tests: Mocked DB ==============
+@pytest.fixture
+def mock_db_session():
+    """Mocked AsyncSession for integration/unit tests."""
+    session = AsyncMock(spec=AsyncSession)
+    session.commit = AsyncMock()
+    session.rollback = AsyncMock()
+    session.close = AsyncMock()
+    session.add = MagicMock()
+    session.delete = AsyncMock()
+    
+    # Mock execute to return empty results
+    mock_result = MagicMock()
+    mock_result.scalars.return_value.all.return_value = []
+    mock_result.scalar.return_value = 0
+    mock_result.scalar_one_or_none.return_value = None
+    session.execute = AsyncMock(return_value=mock_result)
+    
+    return session
+
+
+@pytest.fixture(scope="function")
+async def client(mock_db_session):
+    """Integration test client with mocked DB."""
+    async def override_get_db():
+        yield mock_db_session
+    
+    app.dependency_overrides[get_db] = override_get_db
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        yield ac
+    app.dependency_overrides.clear()
+
+
+# ============== Common Fixtures ==============
+@pytest.fixture(scope="session")
+def event_loop():
+    import asyncio
+    loop = asyncio.get_event_loop_policy().new_event_loop()
+    yield loop
+    loop.close()
+
+
+@pytest.fixture
+def mock_jwt_payload():
+    from app.auth.models import JWTPayload
+    return JWTPayload(
+        sub="123e4567-e89b-12d3-a456-426614174000",
+        internal_user_id="123e4567-e89b-12d3-a456-426614174001",
+        org_id="org-alpha",
+        tenant_schema="org_alpha",
+        roles=["CAREGIVER"],
+        permissions=["care-session:create", "care-session:read", "care-session:update"],
+    )
+
+
+@pytest.fixture
+def auth_headers():
+    return {"Authorization": "Bearer mock_token"}

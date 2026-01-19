@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 from datetime import datetime
 from app.care_sessions.validators import SessionValidator
@@ -38,41 +38,38 @@ def dummy_care_session():
 
 
 @pytest.mark.asyncio
-async def test_validate_and_get_nfc_tag_success(fake_db, dummy_nfc_tag):
-    validator = SessionValidator(fake_db, MagicMock())
+async def test_get_patient_id_from_nfc_event_success(mock_db_session):
+    """Test that patient_id is retrieved from NFC cache"""
+    patient_id = uuid4()
+    
+    with patch('app.care_sessions.validators.get_nfc_cache') as mock_get_cache:
+        mock_cache = MagicMock()
+        mock_cache.get_patient_id.return_value = patient_id
+        mock_get_cache.return_value = mock_cache
+        
+        validator = SessionValidator(mock_db_session, MagicMock(), TEST_TENANT_SCHEMA)
+        result = validator.get_patient_id_from_nfc_event("TAG123")
 
-    # Mock the repository's _set_search_path method
-    validator.repository._set_search_path = AsyncMock()
-
-    # Mock the db execute to return the tag
-    result_mock = MagicMock()
-    result_mock.scalar_one_or_none.return_value = dummy_nfc_tag
-    fake_db.execute = AsyncMock(return_value=result_mock)
-
-    result = await validator.validate_and_get_nfc_tag("TAG123")
-
-    assert result is dummy_nfc_tag
-    fake_db.execute.assert_awaited()
+        assert result == patient_id
+        mock_cache.get_patient_id.assert_called_once_with("TAG123", TEST_TENANT_SCHEMA)
 
 
 @pytest.mark.asyncio
-async def test_validate_and_get_nfc_tag_not_found(fake_db):
-    validator = SessionValidator(fake_db, MagicMock())
+async def test_get_patient_id_from_nfc_event_not_found(mock_db_session):
+    """Test that NFCTagNotFoundException is raised when tag not in cache"""
+    with patch('app.care_sessions.validators.get_nfc_cache') as mock_get_cache:
+        mock_cache = MagicMock()
+        mock_cache.get_patient_id.return_value = None
+        mock_get_cache.return_value = mock_cache
+        
+        validator = SessionValidator(mock_db_session, MagicMock(), TEST_TENANT_SCHEMA)
 
-    # Mock the repository's _set_search_path method
-    validator.repository._set_search_path = AsyncMock()
-
-    # Mock the db execute to return None
-    result_mock = MagicMock()
-    result_mock.scalar_one_or_none.return_value = None
-    fake_db.execute = AsyncMock(return_value=result_mock)
-
-    with pytest.raises(NFCTagNotFoundException):
-        await validator.validate_and_get_nfc_tag("INVALID_TAG")
+        with pytest.raises(NFCTagNotFoundException):
+            validator.get_patient_id_from_nfc_event("INVALID_TAG")
 
 
 def test_validate_status_valid():
-    validator = SessionValidator(None, None)
+    validator = SessionValidator(None, None, TEST_TENANT_SCHEMA)
 
     # Should not raise for valid statuses
     validator.validate_status("in_progress")
@@ -80,14 +77,14 @@ def test_validate_status_valid():
 
 
 def test_validate_status_invalid():
-    validator = SessionValidator(None, None)
+    validator = SessionValidator(None, None, TEST_TENANT_SCHEMA)
 
     with pytest.raises(InvalidStatusException):
         validator.validate_status("invalid_status")
 
 
 def test_validate_session_times_valid(dummy_care_session):
-    validator = SessionValidator(None, None)
+    validator = SessionValidator(None, None, TEST_TENANT_SCHEMA)
 
     # Valid: check_out after check_in
     dummy_care_session.check_in_time = datetime(2023, 1, 1, 10, 0)
@@ -98,7 +95,7 @@ def test_validate_session_times_valid(dummy_care_session):
 
 
 def test_validate_session_times_invalid(dummy_care_session):
-    validator = SessionValidator(None, None)
+    validator = SessionValidator(None, None, TEST_TENANT_SCHEMA)
 
     # Invalid: check_out before check_in
     dummy_care_session.check_in_time = datetime(2023, 1, 1, 11, 0)
@@ -109,7 +106,7 @@ def test_validate_session_times_invalid(dummy_care_session):
 
 
 def test_validate_session_times_same_time(dummy_care_session):
-    validator = SessionValidator(None, None)
+    validator = SessionValidator(None, None, TEST_TENANT_SCHEMA)
 
     # Invalid: check_out same as check_in
     same_time = datetime(2023, 1, 1, 10, 0)
@@ -121,7 +118,7 @@ def test_validate_session_times_same_time(dummy_care_session):
 
 
 def test_validate_session_times_no_check_out(dummy_care_session):
-    validator = SessionValidator(None, None)
+    validator = SessionValidator(None, None, TEST_TENANT_SCHEMA)
 
     # Valid: no check_out_time yet
     dummy_care_session.check_out_time = None
@@ -131,7 +128,7 @@ def test_validate_session_times_no_check_out(dummy_care_session):
 
 
 def test_validate_session_in_progress_valid(dummy_care_session):
-    validator = SessionValidator(None, None)
+    validator = SessionValidator(None, None, TEST_TENANT_SCHEMA)
 
     dummy_care_session.status = "in_progress"
 
@@ -140,7 +137,7 @@ def test_validate_session_in_progress_valid(dummy_care_session):
 
 
 def test_validate_session_in_progress_invalid(dummy_care_session):
-    validator = SessionValidator(None, None)
+    validator = SessionValidator(None, None, TEST_TENANT_SCHEMA)
 
     dummy_care_session.status = "completed"
 
@@ -149,7 +146,7 @@ def test_validate_session_in_progress_invalid(dummy_care_session):
 
 
 def test_validate_caregiver_ownership_valid(dummy_care_session):
-    validator = SessionValidator(None, None)
+    validator = SessionValidator(None, None, TEST_TENANT_SCHEMA)
 
     caregiver_id = dummy_care_session.caregiver_id
 
@@ -158,7 +155,7 @@ def test_validate_caregiver_ownership_valid(dummy_care_session):
 
 
 def test_validate_caregiver_ownership_invalid(dummy_care_session):
-    validator = SessionValidator(None, None)
+    validator = SessionValidator(None, None, TEST_TENANT_SCHEMA)
 
     different_caregiver_id = uuid4()
 
