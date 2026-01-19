@@ -12,6 +12,9 @@ from app.care_sessions.exceptions import (
 )
 from app.db.models import CareSession
 
+# Test constant for tenant schema
+TEST_TENANT_SCHEMA = "test_schema"
+
 
 TEST_TENANT_SCHEMA = "test_tenant"
 
