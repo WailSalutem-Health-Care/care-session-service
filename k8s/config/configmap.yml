@@ -21,7 +21,7 @@ data:
   JWT_ALGORITHM: RS256
   
   # CORS configuration
-  ALLOWED_ORIGINS: "http://localhost:3000,https://wailsalutem-web-ui.netlify.app,https://wailsalutem-suite.netlify.app/"
+  ALLOWED_ORIGINS: "http://localhost:3000,https://wailsalutem-web-ui.netlify.app,https://wailsalutem-suite.netlify.app"
   
   # Application configuration
   APP_ENV: production
