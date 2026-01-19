@@ -254,7 +254,7 @@ def test_multi_caregiver_different_patients(multi_user_client):
     set_user_context(users["caregiver1"])
     resp3 = client.post("/care-sessions/create", json={"tag_id": "tag-patient3", "session_id": "CS-003"})
     assert resp3.status_code == 201
-    session3_id = resp3.json()["id"]
+    # session3_id not used in this test, but session is created successfully
 
     # Admin can see all sessions
     set_user_context(users["admin"])

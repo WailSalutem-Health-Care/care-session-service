@@ -138,7 +138,84 @@ class OrganizationEventConsumer:
             "deleted_at": None,
         }
 
+    async def _handle_patient_created(self, repository: ReportsRepository, event_data: Dict) -> None:
+        """Handle patient.created event."""
+        payload = self._patient_payload(event_data)
+        if not payload:
+            logger.warning("Missing patient_id in event")
+            return
+        await repository.upsert_patient_cache(payload)
+
+    async def _handle_patient_deleted(self, repository: ReportsRepository, event_data: Dict) -> None:
+        """Handle patient.deleted event."""
+        patient_id = self._get_value(event_data, "patient_id", "patientId")
+        if not patient_id:
+            logger.warning("Missing patient_id in delete event")
+            return
+        deleted_at = self._parse_datetime(self._get_value(event_data, "deleted_at", "deletedAt")) or now_cet()
+        await repository.mark_patient_deleted(UUID(patient_id), deleted_at)
+
+    async def _handle_patient_status_changed(self, repository: ReportsRepository, event_data: Dict) -> None:
+        """Handle patient.status_changed event."""
+        patient_id = self._get_value(event_data, "patient_id", "patientId")
+        if not patient_id:
+            logger.warning("Missing patient_id in status event")
+            return
+        new_status = self._get_value(event_data, "new_status", "newStatus")
+        changed_at = self._parse_datetime(self._get_value(event_data, "changed_at", "changedAt")) or now_cet()
+        is_active = str(new_status).lower() == "active"
+        await repository.update_patient_status(UUID(patient_id), is_active, changed_at)
+
+    async def _handle_user_created(self, repository: ReportsRepository, event_data: Dict) -> None:
+        """Handle user.created event."""
+        payload = self._user_payload(event_data)
+        if not payload:
+            return
+        await repository.upsert_user_cache(payload)
+
+    async def _handle_user_deleted(self, repository: ReportsRepository, event_data: Dict) -> None:
+        """Handle user.deleted event."""
+        user_id = self._get_value(event_data, "user_id", "userId")
+        if not user_id:
+            logger.warning("Missing user_id in delete event")
+            return
+        role = self._get_value(event_data, "role")
+        if role and str(role).upper() != "CAREGIVER":
+            return
+        deleted_at = self._parse_datetime(self._get_value(event_data, "deleted_at", "deletedAt")) or now_cet()
+        await repository.mark_user_deleted(UUID(user_id), deleted_at)
+
+    async def _handle_user_status_changed(self, repository: ReportsRepository, event_data: Dict) -> None:
+        """Handle user.status_changed event."""
+        user_id = self._get_value(event_data, "user_id", "userId")
+        if not user_id:
+            logger.warning("Missing user_id in status event")
+            return
+        role = self._get_value(event_data, "role")
+        if role and str(role).upper() != "CAREGIVER":
+            return
+        new_status = self._get_value(event_data, "new_status", "newStatus")
+        changed_at = self._parse_datetime(self._get_value(event_data, "changed_at", "changedAt")) or now_cet()
+        is_active = str(new_status).lower() == "active"
+        await repository.update_user_status(UUID(user_id), is_active, changed_at)
+
+    async def _handle_user_role_changed(self, repository: ReportsRepository, event_data: Dict) -> None:
+        """Handle user.role_changed event."""
+        user_id = self._get_value(event_data, "user_id", "userId")
+        if not user_id:
+            logger.warning("Missing user_id in role event")
+            return
+        new_role = self._get_value(event_data, "new_role", "newRole")
+        old_role = self._get_value(event_data, "old_role", "oldRole")
+        changed_at = self._parse_datetime(self._get_value(event_data, "changed_at", "changedAt")) or now_cet()
+
+        if old_role and str(old_role).upper() == "CAREGIVER" and (not new_role or str(new_role).upper() != "CAREGIVER"):
+            await repository.update_user_role(UUID(user_id), new_role, False, changed_at)
+        elif new_role and str(new_role).upper() == "CAREGIVER":
+            await repository.update_user_role(UUID(user_id), new_role, True, changed_at)
+
     async def _process_event(self, event_type: str, event_data: Dict):
+        """Process organization events and update cache."""
         schema = self._schema_from_org(event_data)
         if not schema:
             logger.warning("Missing organization schema for event")
@@ -147,72 +224,19 @@ class OrganizationEventConsumer:
         async with AsyncSessionLocal() as session:
             repository = ReportsRepository(session, schema)
 
-            if event_type == "patient.created":
-                payload = self._patient_payload(event_data)
-                if not payload:
-                    logger.warning("Missing patient_id in event")
-                    return
-                await repository.upsert_patient_cache(payload)
-            elif event_type == "patient.deleted":
-                patient_id = self._get_value(event_data, "patient_id", "patientId")
-                if not patient_id:
-                    logger.warning("Missing patient_id in delete event")
-                    return
-                deleted_at = self._parse_datetime(self._get_value(event_data, "deleted_at", "deletedAt")) or now_cet()
-                await repository.mark_patient_deleted(UUID(patient_id), deleted_at)
-            elif event_type == "patient.status_changed":
-                patient_id = self._get_value(event_data, "patient_id", "patientId")
-                if not patient_id:
-                    logger.warning("Missing patient_id in status event")
-                    return
-                new_status = self._get_value(event_data, "new_status", "newStatus")
-                changed_at = self._parse_datetime(self._get_value(event_data, "changed_at", "changedAt")) or now_cet()
-                is_active = str(new_status).lower() == "active"
-                await repository.update_patient_status(UUID(patient_id), is_active, changed_at)
-            elif event_type == "user.created":
-                payload = self._user_payload(event_data)
-                if not payload:
-                    return
-                await repository.upsert_user_cache(payload)
-            elif event_type == "user.deleted":
-                user_id = self._get_value(event_data, "user_id", "userId")
-                if not user_id:
-                    logger.warning("Missing user_id in delete event")
-                    return
-                role = self._get_value(event_data, "role")
-                if role and str(role).upper() != "CAREGIVER":
-                    return
-                deleted_at = self._parse_datetime(self._get_value(event_data, "deleted_at", "deletedAt")) or now_cet()
-                await repository.mark_user_deleted(UUID(user_id), deleted_at)
-            elif event_type == "user.status_changed":
-                user_id = self._get_value(event_data, "user_id", "userId")
-                if not user_id:
-                    logger.warning("Missing user_id in status event")
-                    return
-                role = self._get_value(event_data, "role")
-                if role and str(role).upper() != "CAREGIVER":
-                    return
-                new_status = self._get_value(event_data, "new_status", "newStatus")
-                changed_at = self._parse_datetime(self._get_value(event_data, "changed_at", "changedAt")) or now_cet()
-                is_active = str(new_status).lower() == "active"
-                await repository.update_user_status(UUID(user_id), is_active, changed_at)
-            elif event_type == "user.role_changed":
-                user_id = self._get_value(event_data, "user_id", "userId")
-                if not user_id:
-                    logger.warning("Missing user_id in role event")
-                    return
-                new_role = self._get_value(event_data, "new_role", "newRole")
-                old_role = self._get_value(event_data, "old_role", "oldRole")
-                changed_at = self._parse_datetime(self._get_value(event_data, "changed_at", "changedAt")) or now_cet()
+            event_handlers = {
+                "patient.created": self._handle_patient_created,
+                "patient.deleted": self._handle_patient_deleted,
+                "patient.status_changed": self._handle_patient_status_changed,
+                "user.created": self._handle_user_created,
+                "user.deleted": self._handle_user_deleted,
+                "user.status_changed": self._handle_user_status_changed,
+                "user.role_changed": self._handle_user_role_changed,
+            }
 
-                if (
-                    old_role
-                    and str(old_role).upper() == "CAREGIVER"
-                    and (not new_role or str(new_role).upper() != "CAREGIVER")
-                ):
-                    await repository.update_user_role(UUID(user_id), new_role, False, changed_at)
-                elif new_role and str(new_role).upper() == "CAREGIVER":
-                    await repository.update_user_role(UUID(user_id), new_role, True, changed_at)
+            handler = event_handlers.get(event_type)
+            if handler:
+                await handler(repository, event_data)
             else:
                 logger.warning(f"Unknown event type: {event_type}")
 

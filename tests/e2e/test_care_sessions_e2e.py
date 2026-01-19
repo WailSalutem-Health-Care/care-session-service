@@ -267,6 +267,5 @@ def test_care_session_e2e_flow(e2e_client):
 
     # Event publishing test (optional - may be empty if publisher is mocked)
     # Ensure created and/or completed events were captured if publishing is enabled
-    types = [e.get("event_type") for e in published if e.get("event_type")]
     # Just check that the published list exists (events may or may not be captured depending on mocking)
     assert isinstance(published, list)

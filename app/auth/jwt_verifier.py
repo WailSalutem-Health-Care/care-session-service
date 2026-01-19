@@ -4,7 +4,7 @@ import logging
 from typing import Dict, Optional
 
 import requests
-from jose import jwt, JWTError
+from jose import jwt
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 logger = logging.getLogger(__name__)

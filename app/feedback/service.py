@@ -2,7 +2,7 @@
 
 from uuid import UUID
 from typing import Tuple, List, Optional, Dict
-from datetime import date, datetime, timedelta
+from datetime import date
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models import Feedback
 from app.feedback.repository import FeedbackRepository
