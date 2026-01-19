@@ -35,11 +35,6 @@ spec:
           env:
             - name: APP_VERSION
               value: "1.0.0"
-          volumeMounts:
-            - name: logs
-              mountPath: /app/logs
-            - name: reports
-              mountPath: /app/reports
           resources:
             requests:
               memory: "256Mi"
@@ -67,10 +62,3 @@ spec:
             timeoutSeconds: 3
             successThreshold: 1
             failureThreshold: 3
-      volumes:
-        - name: logs
-          persistentVolumeClaim:
-            claimName: care-session-service-logs
-        - name: reports
-          persistentVolumeClaim:
-            claimName: care-session-service-reports
