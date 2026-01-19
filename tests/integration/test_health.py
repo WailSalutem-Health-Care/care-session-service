@@ -7,7 +7,10 @@ async def test_health_check(client: AsyncClient):
     """Test the health check endpoint."""
     response = await client.get("/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "service": "care-session-service"}
+    data = response.json()
+    assert data["status"] in ["healthy", "degraded"]  # Can be healthy or degraded depending on DB
+    assert data["service"] == "care-session-service"
+    assert "dependencies" in data
 
 
 @pytest.mark.asyncio
