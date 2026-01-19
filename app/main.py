@@ -1,4 +1,5 @@
 """Care Session Service - FastAPI Application."""
+
 from dotenv import load_dotenv
 import os
 import threading
@@ -8,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 # Load .env file in development
-if os.path.exists('.env'):
+if os.path.exists(".env"):
     load_dotenv()
 
 # Configure logging
@@ -20,6 +21,7 @@ def _start_nfc_consumer():
     """Start NFC event consumer in background thread."""
     try:
         from app.messaging.consumer import NFCEventConsumer
+
         NFCEventConsumer().start_consuming()
     except Exception as e:
         logger.error(f"NFC consumer failed: {e}")
@@ -37,7 +39,10 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Care Session Service", lifespan=lifespan)
 
 # CORS
-allowed_origins_str = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,https://wailsalutem-web-ui.netlify.app,https://wailsalutem-suite.netlify.app")
+allowed_origins_str = os.getenv(
+    "ALLOWED_ORIGINS",
+    "http://localhost:3000,https://wailsalutem-web-ui.netlify.app,https://wailsalutem-suite.netlify.app",
+)
 allowed_origins = [origin.strip() for origin in allowed_origins_str.split(",")]
 
 app.add_middleware(
@@ -51,18 +56,21 @@ app.add_middleware(
 # Routers
 try:
     from app.care_sessions.router import router as care_sessions_router
+
     app.include_router(care_sessions_router)
 except Exception as e:
     logger.error(f"Failed to load care_sessions router: {e}")
 
 try:
     from app.reports.router import router as reports_router
+
     app.include_router(reports_router)
 except Exception as e:
     logger.error(f"Failed to load reports router: {e}")
 
 try:
     from app.feedback.router import router as feedback_router
+
     app.include_router(feedback_router)
 except Exception as e:
     logger.error(f"Failed to load feedback router: {e}")
@@ -77,6 +85,7 @@ async def health():
     try:
         from app.db.postgres import engine
         from sqlalchemy import text
+
         async with engine.connect() as conn:
             await conn.execute(text("SELECT 1"))
         status["dependencies"]["database"] = {"status": "healthy"}
@@ -85,5 +94,3 @@ async def health():
         status["dependencies"]["database"] = {"status": "unhealthy", "error": str(e)}
 
     return status
-
-

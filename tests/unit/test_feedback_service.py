@@ -16,17 +16,19 @@ def dummy_feedback():
         patient_id=uuid4(),
         caregiver_id=uuid4(),
         rating=3,
-        patient_feedback="Great service!"
+        patient_feedback="Great service!",
     )
 
 
 @pytest.fixture
 def dummy_care_session():
     """Create a dummy care session object for testing"""
+
     class DummyCareSession:
         def __init__(self):
             self.id = uuid4()
             self.caregiver_id = uuid4()
+
     return DummyCareSession()
 
 
@@ -46,7 +48,7 @@ async def test_create_feedback_success(fake_db, dummy_feedback, dummy_care_sessi
         care_session_id=dummy_feedback.care_session_id,
         patient_id=dummy_feedback.patient_id,
         rating=dummy_feedback.rating,
-        patient_feedback=dummy_feedback.patient_feedback
+        patient_feedback=dummy_feedback.patient_feedback,
     )
 
     assert created is dummy_feedback
@@ -64,7 +66,7 @@ async def test_create_feedback_already_exists_raises(fake_db, dummy_feedback):
         await svc.create_feedback(
             care_session_id=dummy_feedback.care_session_id,
             patient_id=dummy_feedback.patient_id,
-            rating=dummy_feedback.rating
+            rating=dummy_feedback.rating,
         )
 
 
@@ -82,7 +84,7 @@ async def test_create_feedback_care_session_not_found_raises(fake_db, dummy_feed
         await svc.create_feedback(
             care_session_id=dummy_feedback.care_session_id,
             patient_id=dummy_feedback.patient_id,
-            rating=dummy_feedback.rating
+            rating=dummy_feedback.rating,
         )
 
 
@@ -121,9 +123,7 @@ async def test_list_feedbacks_without_filters(fake_db, dummy_feedback):
 
     assert feedbacks == [dummy_feedback]
     assert total == 1
-    svc.repository.list_feedbacks.assert_awaited_with(
-        patient_id=None, page=1, page_size=20
-    )
+    svc.repository.list_feedbacks.assert_awaited_with(patient_id=None, page=1, page_size=20)
 
 
 @pytest.mark.asyncio
@@ -138,9 +138,7 @@ async def test_list_feedbacks_with_patient_filter(fake_db, dummy_feedback):
 
     assert feedbacks == [dummy_feedback]
     assert total == 1
-    svc.repository.list_feedbacks.assert_awaited_with(
-        patient_id=patient_id, page=2, page_size=10
-    )
+    svc.repository.list_feedbacks.assert_awaited_with(patient_id=patient_id, page=2, page_size=10)
 
 
 @pytest.mark.asyncio
@@ -149,7 +147,7 @@ async def test_get_daily_averages(fake_db, dummy_feedback):
 
     start_date = date.today()
     end_date = date.today()
-    daily_averages = [{'date': start_date, 'average_rating': 3.0, 'total_feedbacks': 1}]
+    daily_averages = [{"date": start_date, "average_rating": 3.0, "total_feedbacks": 1}]
 
     svc.repository = MagicMock()
     svc.repository.get_daily_averages = AsyncMock(return_value=daily_averages)
@@ -215,9 +213,7 @@ async def test_get_top_caregivers_of_week(fake_db):
 
     week_start = date.today()
     week_end = date.today()
-    top_caregivers = [
-        {'caregiver_id': uuid4(), 'average_rating': 3.0, 'total_feedbacks': 5}
-    ]
+    top_caregivers = [{"caregiver_id": uuid4(), "average_rating": 3.0, "total_feedbacks": 5}]
 
     svc.repository = MagicMock()
     svc.repository.get_top_caregivers_of_week = AsyncMock(return_value=top_caregivers)

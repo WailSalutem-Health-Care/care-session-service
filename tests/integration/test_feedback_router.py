@@ -106,13 +106,18 @@ def test_metrics_endpoints(client_and_service):
     )
 
     # daily metrics
-    service.get_daily_averages.return_value = ([{"date": datetime.utcnow().date(), "average_rating": 3.0, "total_feedbacks": 1}], [feedback_obj])
+    service.get_daily_averages.return_value = (
+        [{"date": datetime.utcnow().date(), "average_rating": 3.0, "total_feedbacks": 1}],
+        [feedback_obj],
+    )
     resp = client.get("/feedback/metrics/daily", params={"start_date": "2025-01-01", "end_date": "2025-01-02"})
     assert resp.status_code == 200
 
     # caregiver weekly
     service.get_caregiver_weekly_metrics.return_value = [feedback_obj]
-    resp2 = client.get(f"/feedback/metrics/caregivers/{feedback_obj.caregiver_id}/weekly", params={"week_start": "2025-01-06"})
+    resp2 = client.get(
+        f"/feedback/metrics/caregivers/{feedback_obj.caregiver_id}/weekly", params={"week_start": "2025-01-06"}
+    )
     assert resp2.status_code == 200
 
     # patient metrics
@@ -122,7 +127,9 @@ def test_metrics_endpoints(client_and_service):
     assert resp3.status_code == 200
 
     # top caregivers weekly
-    service.get_top_caregivers_of_week.return_value = [{"caregiver_id": feedback_obj.caregiver_id, "average_rating": 3.0, "total_feedbacks": 1}]
+    service.get_top_caregivers_of_week.return_value = [
+        {"caregiver_id": feedback_obj.caregiver_id, "average_rating": 3.0, "total_feedbacks": 1}
+    ]
     resp4 = client.get("/feedback/metrics/top-caregivers/weekly", params={"week_start": "2025-01-06"})
     assert resp4.status_code == 200
 

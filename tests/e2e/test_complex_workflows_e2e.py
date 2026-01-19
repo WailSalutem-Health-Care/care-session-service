@@ -26,17 +26,15 @@ def complex_workflow_client(tmp_path, monkeypatch):
 
     async def create_tables():
         async with engine.begin() as conn:
+
             def _create(sync_conn):
-                sync_conn.execute(text(
-                    """
+                sync_conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS patients (
                         id TEXT PRIMARY KEY
                     )
-                    """
-                ))
+                    """))
 
-                sync_conn.execute(text(
-                    """
+                sync_conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS nfc_tags (
                         id TEXT PRIMARY KEY,
                         tag_id TEXT UNIQUE,
@@ -45,11 +43,9 @@ def complex_workflow_client(tmp_path, monkeypatch):
                         issued_at TEXT,
                         deactivated_at TEXT
                     )
-                    """
-                ))
+                    """))
 
-                sync_conn.execute(text(
-                    """
+                sync_conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS care_sessions (
                         id TEXT PRIMARY KEY,
                         session_id TEXT UNIQUE,
@@ -63,11 +59,9 @@ def complex_workflow_client(tmp_path, monkeypatch):
                         updated_at TEXT,
                         deleted_at TEXT
                     )
-                    """
-                ))
+                    """))
 
-                sync_conn.execute(text(
-                    """
+                sync_conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS users (
                         id TEXT PRIMARY KEY,
                         first_name TEXT,
@@ -75,11 +69,9 @@ def complex_workflow_client(tmp_path, monkeypatch):
                         email TEXT,
                         is_active INTEGER
                     )
-                    """
-                ))
+                    """))
 
-                sync_conn.execute(text(
-                    """
+                sync_conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS feedback (
                         id TEXT PRIMARY KEY,
                         care_session_id TEXT,
@@ -90,8 +82,7 @@ def complex_workflow_client(tmp_path, monkeypatch):
                         created_at TEXT,
                         deleted_at TEXT
                     )
-                    """
-                ))
+                    """))
 
             await conn.run_sync(_create)
 
@@ -121,7 +112,9 @@ def complex_workflow_client(tmp_path, monkeypatch):
             # Insert caregivers
             for i, caregiver_id in enumerate(caregivers):
                 await session.execute(
-                    text("INSERT INTO users (id, first_name, last_name, email, is_active) VALUES (:id, :fn, :ln, :em, :act)"),
+                    text(
+                        "INSERT INTO users (id, first_name, last_name, email, is_active) VALUES (:id, :fn, :ln, :em, :act)"
+                    ),
                     {"id": caregiver_id, "fn": f"Caregiver{i+1}", "ln": "Smith", "em": f"cg{i+1}@care.com", "act": 1},
                 )
 
@@ -131,6 +124,7 @@ def complex_workflow_client(tmp_path, monkeypatch):
 
     # Populate NFC cache with test data (the service uses cache, not DB lookup)
     from app.messaging.nfc_cache import get_nfc_cache
+
     nfc_cache = get_nfc_cache()
     for i, patient_id in enumerate(patients):
         nfc_cache.store(f"tag-{i+1}", patient_id)
@@ -140,7 +134,9 @@ def complex_workflow_client(tmp_path, monkeypatch):
         async with AsyncSessionLocal() as session:
             yield session
 
-    monkeypatch.setattr("app.care_sessions.repository.BaseRepository._set_search_path", _noop_set_search_path, raising=False)
+    monkeypatch.setattr(
+        "app.care_sessions.repository.BaseRepository._set_search_path", _noop_set_search_path, raising=False
+    )
     app.dependency_overrides[get_db] = _get_db
 
     # Mock event publisher
@@ -157,9 +153,14 @@ def complex_workflow_client(tmp_path, monkeypatch):
             self.internal_user_id = UUID(user_id)
             self.tenant_schema = None
             self.permissions = [
-                "care-session:create", "care-session:read", "care-session:update", 
-                "care-session:delete", "care-session:admin",
-                "feedback:create", "feedback:read", "feedback:delete"
+                "care-session:create",
+                "care-session:read",
+                "care-session:update",
+                "care-session:delete",
+                "care-session:admin",
+                "feedback:create",
+                "feedback:read",
+                "feedback:delete",
             ]
 
     def set_current_user(user_id):
@@ -176,15 +177,15 @@ def test_full_day_multiple_sessions_workflow(complex_workflow_client):
     client, published, patients, caregivers, set_current_user = complex_workflow_client
 
     session_ids = []
-    
+
     # Morning sessions: Caregiver 1 handles patients 1 and 2
     set_current_user(caregivers[0])
-    
+
     # Session 1: Patient 1
     resp1 = client.post("/care-sessions/create", json={"tag_id": "tag-1", "session_id": "CS-MORN-001"})
     assert resp1.status_code == 201
     session_ids.append(resp1.json()["id"])
-    
+
     # Session 2: Patient 2
     resp2 = client.post("/care-sessions/create", json={"tag_id": "tag-2", "session_id": "CS-MORN-002"})
     assert resp2.status_code == 201
@@ -192,18 +193,18 @@ def test_full_day_multiple_sessions_workflow(complex_workflow_client):
 
     # Afternoon sessions: Caregiver 2 handles patients 3 and 4
     set_current_user(caregivers[1])
-    
+
     resp3 = client.post("/care-sessions/create", json={"tag_id": "tag-3", "session_id": "CS-AFT-001"})
     assert resp3.status_code == 201
     session_ids.append(resp3.json()["id"])
-    
+
     resp4 = client.post("/care-sessions/create", json={"tag_id": "tag-4", "session_id": "CS-AFT-002"})
     assert resp4.status_code == 201
     session_ids.append(resp4.json()["id"])
 
     # Evening session: Caregiver 3 handles patient 5
     set_current_user(caregivers[2])
-    
+
     resp5 = client.post("/care-sessions/create", json={"tag_id": "tag-5", "session_id": "CS-EVE-001"})
     assert resp5.status_code == 201
     session_ids.append(resp5.json()["id"])
@@ -215,24 +216,24 @@ def test_full_day_multiple_sessions_workflow(complex_workflow_client):
 
     # Complete all sessions and add feedback
     feedback_ratings = [3, 2, 3, 3, 1]  # Different ratings
-    
-    for i, (session_id, caregiver_id, rating) in enumerate(zip(session_ids, 
-                                                                 [caregivers[0], caregivers[0], caregivers[1], caregivers[1], caregivers[2]],
-                                                                 feedback_ratings)):
+
+    for i, (session_id, caregiver_id, rating) in enumerate(
+        zip(session_ids, [caregivers[0], caregivers[0], caregivers[1], caregivers[1], caregivers[2]], feedback_ratings)
+    ):
         set_current_user(caregiver_id)
-        
+
         # Complete session
-        complete_resp = client.put(f"/care-sessions/{session_id}/complete", 
-                                   json={"caregiver_notes": f"Session {i+1} completed"})
+        complete_resp = client.put(
+            f"/care-sessions/{session_id}/complete", json={"caregiver_notes": f"Session {i+1} completed"}
+        )
         assert complete_resp.status_code == 200
         assert complete_resp.json()["status"] == "completed"
-        
+
         # Add feedback
-        feedback_resp = client.post("/feedback/", json={
-            "care_session_id": session_id,
-            "rating": rating,
-            "patient_feedback": f"Feedback for session {i+1}"
-        })
+        feedback_resp = client.post(
+            "/feedback/",
+            json={"care_session_id": session_id, "rating": rating, "patient_feedback": f"Feedback for session {i+1}"},
+        )
         assert feedback_resp.status_code == 201
 
     # Verify feedback metrics
@@ -243,10 +244,7 @@ def test_full_day_multiple_sessions_workflow(complex_workflow_client):
 
     # Check daily metrics
     today = datetime.now().date()
-    metrics_resp = client.get("/feedback/metrics/daily", params={
-        "start_date": str(today),
-        "end_date": str(today)
-    })
+    metrics_resp = client.get("/feedback/metrics/daily", params={"start_date": str(today), "end_date": str(today)})
     assert metrics_resp.status_code == 200
 
 
@@ -269,7 +267,9 @@ def test_patient_multiple_sessions_same_day(complex_workflow_client):
     assert complete1.status_code == 200
 
     # Add feedback for morning session
-    feedback1 = client.post("/feedback/", json={"care_session_id": session1_id, "rating": 3, "patient_feedback": "Great morning care"})
+    feedback1 = client.post(
+        "/feedback/", json={"care_session_id": session1_id, "rating": 3, "patient_feedback": "Great morning care"}
+    )
     assert feedback1.status_code == 201
 
     # Afternoon session with caregiver 2 (same patient)
@@ -284,7 +284,9 @@ def test_patient_multiple_sessions_same_day(complex_workflow_client):
     assert complete2.status_code == 200
 
     # Add feedback for afternoon session
-    feedback2 = client.post("/feedback/", json={"care_session_id": session2_id, "rating": 2, "patient_feedback": "Good afternoon care"})
+    feedback2 = client.post(
+        "/feedback/", json={"care_session_id": session2_id, "rating": 2, "patient_feedback": "Good afternoon care"}
+    )
     assert feedback2.status_code == 201
 
     # Verify both sessions exist
@@ -312,35 +314,38 @@ def test_caregiver_performance_tracking(complex_workflow_client):
 
     for i, (patient_idx, rating) in enumerate(zip([0, 1, 2], ratings)):
         # Create session
-        resp = client.post("/care-sessions/create", json={
-            "tag_id": f"tag-{patient_idx + 1}",
-            "session_id": f"CS-PERF-{i+1:03d}"
-        })
+        resp = client.post(
+            "/care-sessions/create", json={"tag_id": f"tag-{patient_idx + 1}", "session_id": f"CS-PERF-{i+1:03d}"}
+        )
         assert resp.status_code == 201
         session_id = resp.json()["id"]
         sessions.append(session_id)
 
         # Complete session
-        complete_resp = client.put(f"/care-sessions/{session_id}/complete", 
-                                   json={"caregiver_notes": f"Quality care session {i+1}"})
+        complete_resp = client.put(
+            f"/care-sessions/{session_id}/complete", json={"caregiver_notes": f"Quality care session {i+1}"}
+        )
         assert complete_resp.status_code == 200
 
         # Add feedback
-        feedback_resp = client.post("/feedback/", json={
-            "care_session_id": session_id,
-            "rating": rating,
-            "patient_feedback": f"Rating {rating} for session {i+1}"
-        })
+        feedback_resp = client.post(
+            "/feedback/",
+            json={
+                "care_session_id": session_id,
+                "rating": rating,
+                "patient_feedback": f"Rating {rating} for session {i+1}",
+            },
+        )
         assert feedback_resp.status_code == 201
 
     # Check caregiver's weekly metrics
     today = datetime.now().date()
     # Get Monday of current week
     monday = today - timedelta(days=today.weekday())
-    
-    weekly_metrics = client.get(f"/feedback/metrics/caregivers/{caregiver_id}/weekly", params={
-        "week_start": str(monday)
-    })
+
+    weekly_metrics = client.get(
+        f"/feedback/metrics/caregivers/{caregiver_id}/weekly", params={"week_start": str(monday)}
+    )
     assert weekly_metrics.status_code == 200
     data = weekly_metrics.json()
     # Check that metrics were returned (might be 0 if no data in that exact week)
@@ -348,9 +353,7 @@ def test_caregiver_performance_tracking(complex_workflow_client):
     assert "average_rating" in data
 
     # Check caregiver period metrics
-    period_metrics = client.get(f"/feedback/metrics/caregivers/{caregiver_id}/period", params={
-        "period": "weekly"
-    })
+    period_metrics = client.get(f"/feedback/metrics/caregivers/{caregiver_id}/period", params={"period": "weekly"})
     assert period_metrics.status_code == 200
 
 
@@ -360,18 +363,17 @@ def test_high_volume_concurrent_sessions(complex_workflow_client):
 
     # Create 5 sessions with different patients to avoid conflicts
     session_ids = []
-    
+
     for i in range(5):
         caregiver_idx = i % 3  # Rotate through caregivers
         patient_idx = i  # Use different patient for each session
-        
+
         set_current_user(caregivers[caregiver_idx])
-        
-        resp = client.post("/care-sessions/create", json={
-            "tag_id": f"tag-{patient_idx + 1}",
-            "session_id": f"CS-VOL-{i+1:03d}"
-        })
-        
+
+        resp = client.post(
+            "/care-sessions/create", json={"tag_id": f"tag-{patient_idx + 1}", "session_id": f"CS-VOL-{i+1:03d}"}
+        )
+
         if resp.status_code == 201:
             session_ids.append((resp.json()["id"], caregivers[caregiver_idx]))
 
@@ -382,8 +384,7 @@ def test_high_volume_concurrent_sessions(complex_workflow_client):
     completed_count = 0
     for session_id, caregiver_id in session_ids:
         set_current_user(caregiver_id)
-        complete_resp = client.put(f"/care-sessions/{session_id}/complete", 
-                                   json={"caregiver_notes": "Completed"})
+        complete_resp = client.put(f"/care-sessions/{session_id}/complete", json={"caregiver_notes": "Completed"})
         if complete_resp.status_code == 200:
             completed_count += 1
 
@@ -404,44 +405,35 @@ def test_session_lifecycle_with_updates(complex_workflow_client):
     set_current_user(caregivers[0])
 
     # Create session
-    create_resp = client.post("/care-sessions/create", json={
-        "tag_id": "tag-1",
-        "session_id": "CS-LIFE-001"
-    })
+    create_resp = client.post("/care-sessions/create", json={"tag_id": "tag-1", "session_id": "CS-LIFE-001"})
     assert create_resp.status_code == 201
     session_id = create_resp.json()["id"]
 
     # Update 1: Add initial notes
-    update1 = client.patch(f"/care-sessions/{session_id}", json={
-        "caregiver_notes": "Started care routine"
-    })
+    update1 = client.patch(f"/care-sessions/{session_id}", json={"caregiver_notes": "Started care routine"})
     assert update1.status_code == 200
 
     # Update 2: Add more notes
-    update2 = client.patch(f"/care-sessions/{session_id}", json={
-        "caregiver_notes": "Administered medication"
-    })
+    update2 = client.patch(f"/care-sessions/{session_id}", json={"caregiver_notes": "Administered medication"})
     assert update2.status_code == 200
 
     # Update 3: Add final notes and complete
-    update3 = client.patch(f"/care-sessions/{session_id}", json={
-        "caregiver_notes": "Patient comfortable, vital signs stable"
-    })
+    update3 = client.patch(
+        f"/care-sessions/{session_id}", json={"caregiver_notes": "Patient comfortable, vital signs stable"}
+    )
     assert update3.status_code == 200
 
     # Complete session
-    complete_resp = client.put(f"/care-sessions/{session_id}/complete", json={
-        "caregiver_notes": "Session completed successfully"
-    })
+    complete_resp = client.put(
+        f"/care-sessions/{session_id}/complete", json={"caregiver_notes": "Session completed successfully"}
+    )
     assert complete_resp.status_code == 200
     assert complete_resp.json()["status"] == "completed"
 
     # Add feedback
-    feedback_resp = client.post("/feedback/", json={
-        "care_session_id": session_id,
-        "rating": 3,
-        "patient_feedback": "Excellent care throughout"
-    })
+    feedback_resp = client.post(
+        "/feedback/", json={"care_session_id": session_id, "rating": 3, "patient_feedback": "Excellent care throughout"}
+    )
     assert feedback_resp.status_code == 201
 
     # Verify final state

@@ -1,4 +1,5 @@
 """Auto-complete sessions older than 2 hours"""
+
 from datetime import datetime, timedelta
 from app.db.models import CareSession
 from app.utils.timezone import now_cet
@@ -19,8 +20,7 @@ def auto_complete_if_needed(session: CareSession) -> bool:
     session.status = "completed"
     session.check_out_time = now_cet()
     session.caregiver_notes = (
-        f"{session.caregiver_notes or ''}\n"
-        f"[AUTO-COMPLETED] Session exceeded {AUTO_COMPLETE_HOURS} hour timeout"
+        f"{session.caregiver_notes or ''}\n" f"[AUTO-COMPLETED] Session exceeded {AUTO_COMPLETE_HOURS} hour timeout"
     ).strip()
 
     return True

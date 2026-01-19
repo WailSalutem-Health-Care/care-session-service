@@ -25,7 +25,9 @@ def test_get_period_and_all_time_session_reports(client_and_service):
 
     # Period session report expects items and next_cursor
     service.get_period_session_report.return_value = ([], None)
-    resp = client.get("/reports/sessions/period", params={"start_date": "2025-01-01T00:00:00", "end_date": "2025-01-02T00:00:00"})
+    resp = client.get(
+        "/reports/sessions/period", params={"start_date": "2025-01-01T00:00:00", "end_date": "2025-01-02T00:00:00"}
+    )
     assert resp.status_code == 200
 
     # All time report
@@ -45,12 +47,18 @@ def test_download_period_and_all_time_csv_and_pdf(client_and_service):
     service.generate_pdf = lambda sessions, title=None: io.BytesIO(b"%PDF-1.4")
 
     # CSV format
-    resp = client.get("/reports/sessions/period/download", params={"start_date": "2025-01-01T00:00:00", "end_date": "2025-01-02T00:00:00", "format": "csv"})
+    resp = client.get(
+        "/reports/sessions/period/download",
+        params={"start_date": "2025-01-01T00:00:00", "end_date": "2025-01-02T00:00:00", "format": "csv"},
+    )
     assert resp.status_code == 200
     assert resp.headers.get("content-type", "").startswith("text/csv")
 
     # PDF format
-    resp2 = client.get("/reports/sessions/period/download", params={"start_date": "2025-01-01T00:00:00", "end_date": "2025-01-02T00:00:00", "format": "pdf"})
+    resp2 = client.get(
+        "/reports/sessions/period/download",
+        params={"start_date": "2025-01-01T00:00:00", "end_date": "2025-01-02T00:00:00", "format": "pdf"},
+    )
     assert resp2.status_code == 200
     assert resp2.headers.get("content-type", "").startswith("application/pdf")
 
@@ -81,11 +89,16 @@ def test_validation_cases_reports(client_and_service):
     assert resp.status_code == 422
 
     # Test invalid date format
-    resp = client.get("/reports/sessions/period", params={"start_date": "invalid-date", "end_date": "2025-01-02T00:00:00"})
+    resp = client.get(
+        "/reports/sessions/period", params={"start_date": "invalid-date", "end_date": "2025-01-02T00:00:00"}
+    )
     assert resp.status_code == 422
 
     # Test invalid format parameter - FastAPI enum validation returns 400 when constraint fails
-    resp = client.get("/reports/sessions/period/download", params={"start_date": "2025-01-01T00:00:00", "end_date": "2025-01-02T00:00:00", "format": "invalid"})
+    resp = client.get(
+        "/reports/sessions/period/download",
+        params={"start_date": "2025-01-01T00:00:00", "end_date": "2025-01-02T00:00:00", "format": "invalid"},
+    )
     assert resp.status_code in [400, 422]  # Accept both 400 (bad request) and 422 (validation error)
 
     # Test missing required parameters - missing dates returns 400 (bad request) not 422 (validation error)
@@ -96,7 +109,7 @@ def test_validation_cases_reports(client_and_service):
 def test_additional_reports_endpoints(client_and_service):
     """Test additional reports endpoints"""
     client, service = client_and_service
-    
+
     from uuid import UUID
     from app.reports.schemas import PatientSummary
 
@@ -104,14 +117,11 @@ def test_additional_reports_endpoints(client_and_service):
     service.get_caregiver_list.return_value = []
     service.get_caregiver_performance.return_value = []
     service.get_patient_list.return_value = []
-    
+
     # Create proper PatientSummary object with valid UUID
     patient_id = UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
     service.get_patient_summary.return_value = PatientSummary(
-        patient_id=patient_id,
-        total_sessions=0,
-        avg_rating=None,
-        distinct_caregivers=0
+        patient_id=patient_id, total_sessions=0, avg_rating=None, distinct_caregivers=0
     )
     service.get_patient_sessions.return_value = MagicMock(items=[], total=0, limit=10, offset=0)
     service.get_feedback_report.return_value = MagicMock(items=[], next_cursor=None)

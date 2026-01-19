@@ -1,4 +1,5 @@
 """Care Session Repository Layer"""
+
 from uuid import UUID
 from datetime import datetime
 from typing import Optional, List, Tuple

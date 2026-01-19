@@ -29,16 +29,13 @@ def e2e_client(tmp_path, monkeypatch):
         async with engine.begin() as conn:
             # Use run_sync to execute DDL on sync connection
             def _create(sync_conn):
-                sync_conn.execute(text(
-                    """
+                sync_conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS patients (
                         id TEXT PRIMARY KEY
                     )
-                    """
-                ))
+                    """))
 
-                sync_conn.execute(text(
-                    """
+                sync_conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS nfc_tags (
                         id TEXT PRIMARY KEY,
                         tag_id TEXT UNIQUE,
@@ -47,11 +44,9 @@ def e2e_client(tmp_path, monkeypatch):
                         issued_at TEXT,
                         deactivated_at TEXT
                     )
-                    """
-                ))
+                    """))
 
-                sync_conn.execute(text(
-                    """
+                sync_conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS care_sessions (
                         id TEXT PRIMARY KEY,
                         session_id TEXT UNIQUE,
@@ -65,11 +60,9 @@ def e2e_client(tmp_path, monkeypatch):
                         updated_at TEXT,
                         deleted_at TEXT
                     )
-                    """
-                ))
+                    """))
 
-                sync_conn.execute(text(
-                    """
+                sync_conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS users (
                         id TEXT PRIMARY KEY,
                         first_name TEXT,
@@ -77,11 +70,9 @@ def e2e_client(tmp_path, monkeypatch):
                         email TEXT,
                         is_active INTEGER
                     )
-                    """
-                ))
+                    """))
 
-                sync_conn.execute(text(
-                    """
+                sync_conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS feedback (
                         id TEXT PRIMARY KEY,
                         care_session_id TEXT,
@@ -92,8 +83,7 @@ def e2e_client(tmp_path, monkeypatch):
                         created_at TEXT,
                         deleted_at TEXT
                     )
-                    """
-                ))
+                    """))
 
             await conn.run_sync(_create)
 
@@ -122,7 +112,9 @@ def e2e_client(tmp_path, monkeypatch):
             )
             # Insert caregiver user
             await session.execute(
-                text("INSERT INTO users (id, first_name, last_name, email, is_active) VALUES (:id, :fn, :ln, :em, :act)"),
+                text(
+                    "INSERT INTO users (id, first_name, last_name, email, is_active) VALUES (:id, :fn, :ln, :em, :act)"
+                ),
                 {"id": caregiver_id, "fn": "Jane", "ln": "Smith", "em": "jane@example.com", "act": 1},
             )
             await session.commit()
@@ -131,6 +123,7 @@ def e2e_client(tmp_path, monkeypatch):
 
     # Populate NFC cache with test data (the service uses cache, not DB lookup)
     from app.messaging.nfc_cache import get_nfc_cache
+
     nfc_cache = get_nfc_cache()
     nfc_cache.store("tag-1", entity_id)
 
@@ -139,7 +132,9 @@ def e2e_client(tmp_path, monkeypatch):
         async with AsyncSessionLocal() as session:
             yield session
 
-    monkeypatch.setattr("app.care_sessions.repository.BaseRepository._set_search_path", _noop_set_search_path, raising=False)
+    monkeypatch.setattr(
+        "app.care_sessions.repository.BaseRepository._set_search_path", _noop_set_search_path, raising=False
+    )
     app.dependency_overrides[get_db] = _get_db
 
     # Capture published events
@@ -201,11 +196,14 @@ def test_care_session_e2e_flow(e2e_client):
 
     # Test feedback endpoints
     # Create feedback for the completed session
-    feedback_resp = client.post("/feedback/", json={
-        "care_session_id": session_id,
-        "rating": 3,  # Rating must be 1-3 (1=Dissatisfied, 2=Neutral, 3=Satisfied)
-        "patient_feedback": "Good service"
-    })
+    feedback_resp = client.post(
+        "/feedback/",
+        json={
+            "care_session_id": session_id,
+            "rating": 3,  # Rating must be 1-3 (1=Dissatisfied, 2=Neutral, 3=Satisfied)
+            "patient_feedback": "Good service",
+        },
+    )
     assert feedback_resp.status_code == 201
     feedback_data = feedback_resp.json()
     feedback_id = feedback_data["id"]
@@ -225,7 +223,7 @@ def test_care_session_e2e_flow(e2e_client):
     # NOTE: Reports endpoints require full patient table schema with all columns
     # Skipping reports tests in E2E since integration tests cover them adequately
     # If needed, uncomment and add full patient table schema to create_tables()
-    
+
     # # Test reports endpoints
     # # Individual session report
     # session_report_resp = client.get(f"/reports/sessions/{session_id}")
@@ -252,10 +250,7 @@ def test_care_session_e2e_flow(e2e_client):
 
     # Test error scenarios
     # Try to create feedback for same session again (should fail with 409 Conflict)
-    duplicate_feedback_resp = client.post("/feedback/", json={
-        "care_session_id": session_id,
-        "rating": 3
-    })
+    duplicate_feedback_resp = client.post("/feedback/", json={"care_session_id": session_id, "rating": 3})
     assert duplicate_feedback_resp.status_code == 409  # Conflict - feedback already exists
 
     # Try to get non-existent session

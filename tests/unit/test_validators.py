@@ -19,12 +19,7 @@ TEST_TENANT_SCHEMA = "test_schema"
 @pytest.fixture
 def dummy_nfc_tag():
     """Create a dummy NFC tag for testing"""
-    return NFCTag(
-        id=uuid4(),
-        tag_id="TAG123",
-        patient_id=uuid4(),
-        status="active"
-    )
+    return NFCTag(id=uuid4(), tag_id="TAG123", patient_id=uuid4(), status="active")
 
 
 @pytest.fixture
@@ -36,7 +31,7 @@ def dummy_care_session():
         caregiver_id=uuid4(),
         check_in_time=datetime.now(),
         check_out_time=datetime.now(),
-        status="in_progress"
+        status="in_progress",
     )
 
 
@@ -44,12 +39,12 @@ def dummy_care_session():
 async def test_get_patient_id_from_nfc_event_success(mock_db_session):
     """Test that patient_id is retrieved from NFC cache"""
     patient_id = uuid4()
-    
-    with patch('app.care_sessions.validators.get_nfc_cache') as mock_get_cache:
+
+    with patch("app.care_sessions.validators.get_nfc_cache") as mock_get_cache:
         mock_cache = MagicMock()
         mock_cache.get_patient_id.return_value = patient_id
         mock_get_cache.return_value = mock_cache
-        
+
         validator = SessionValidator(mock_db_session, MagicMock(), TEST_TENANT_SCHEMA)
         result = validator.get_patient_id_from_nfc_event("TAG123")
 
@@ -60,11 +55,11 @@ async def test_get_patient_id_from_nfc_event_success(mock_db_session):
 @pytest.mark.asyncio
 async def test_get_patient_id_from_nfc_event_not_found(mock_db_session):
     """Test that NFCTagNotFoundException is raised when tag not in cache"""
-    with patch('app.care_sessions.validators.get_nfc_cache') as mock_get_cache:
+    with patch("app.care_sessions.validators.get_nfc_cache") as mock_get_cache:
         mock_cache = MagicMock()
         mock_cache.get_patient_id.return_value = None
         mock_get_cache.return_value = mock_cache
-        
+
         validator = SessionValidator(mock_db_session, MagicMock(), TEST_TENANT_SCHEMA)
 
         with pytest.raises(NFCTagNotFoundException):

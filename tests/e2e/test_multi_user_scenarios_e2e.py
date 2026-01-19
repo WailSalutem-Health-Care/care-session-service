@@ -25,17 +25,15 @@ def multi_user_client(tmp_path, monkeypatch):
 
     async def create_tables():
         async with engine.begin() as conn:
+
             def _create(sync_conn):
-                sync_conn.execute(text(
-                    """
+                sync_conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS patients (
                         id TEXT PRIMARY KEY
                     )
-                    """
-                ))
+                    """))
 
-                sync_conn.execute(text(
-                    """
+                sync_conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS nfc_tags (
                         id TEXT PRIMARY KEY,
                         tag_id TEXT UNIQUE,
@@ -44,11 +42,9 @@ def multi_user_client(tmp_path, monkeypatch):
                         issued_at TEXT,
                         deactivated_at TEXT
                     )
-                    """
-                ))
+                    """))
 
-                sync_conn.execute(text(
-                    """
+                sync_conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS care_sessions (
                         id TEXT PRIMARY KEY,
                         session_id TEXT UNIQUE,
@@ -62,11 +58,9 @@ def multi_user_client(tmp_path, monkeypatch):
                         updated_at TEXT,
                         deleted_at TEXT
                     )
-                    """
-                ))
+                    """))
 
-                sync_conn.execute(text(
-                    """
+                sync_conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS users (
                         id TEXT PRIMARY KEY,
                         first_name TEXT,
@@ -74,11 +68,9 @@ def multi_user_client(tmp_path, monkeypatch):
                         email TEXT,
                         is_active INTEGER
                     )
-                    """
-                ))
+                    """))
 
-                sync_conn.execute(text(
-                    """
+                sync_conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS feedback (
                         id TEXT PRIMARY KEY,
                         care_session_id TEXT,
@@ -89,8 +81,7 @@ def multi_user_client(tmp_path, monkeypatch):
                         created_at TEXT,
                         deleted_at TEXT
                     )
-                    """
-                ))
+                    """))
 
             await conn.run_sync(_create)
 
@@ -134,19 +125,27 @@ def multi_user_client(tmp_path, monkeypatch):
 
             # Insert caregivers and admin
             await session.execute(
-                text("INSERT INTO users (id, first_name, last_name, email, is_active) VALUES (:id, :fn, :ln, :em, :act)"),
+                text(
+                    "INSERT INTO users (id, first_name, last_name, email, is_active) VALUES (:id, :fn, :ln, :em, :act)"
+                ),
                 {"id": caregiver1_id, "fn": "John", "ln": "Caregiver", "em": "john@care.com", "act": 1},
             )
             await session.execute(
-                text("INSERT INTO users (id, first_name, last_name, email, is_active) VALUES (:id, :fn, :ln, :em, :act)"),
+                text(
+                    "INSERT INTO users (id, first_name, last_name, email, is_active) VALUES (:id, :fn, :ln, :em, :act)"
+                ),
                 {"id": caregiver2_id, "fn": "Jane", "ln": "Nurse", "em": "jane@care.com", "act": 1},
             )
             await session.execute(
-                text("INSERT INTO users (id, first_name, last_name, email, is_active) VALUES (:id, :fn, :ln, :em, :act)"),
+                text(
+                    "INSERT INTO users (id, first_name, last_name, email, is_active) VALUES (:id, :fn, :ln, :em, :act)"
+                ),
                 {"id": admin_id, "fn": "Admin", "ln": "User", "em": "admin@care.com", "act": 1},
             )
             await session.execute(
-                text("INSERT INTO users (id, first_name, last_name, email, is_active) VALUES (:id, :fn, :ln, :em, :act)"),
+                text(
+                    "INSERT INTO users (id, first_name, last_name, email, is_active) VALUES (:id, :fn, :ln, :em, :act)"
+                ),
                 {"id": readonly_user_id, "fn": "ReadOnly", "ln": "User", "em": "readonly@care.com", "act": 1},
             )
             await session.commit()
@@ -155,6 +154,7 @@ def multi_user_client(tmp_path, monkeypatch):
 
     # Populate NFC cache with test data (the service uses cache, not DB lookup)
     from app.messaging.nfc_cache import get_nfc_cache
+
     nfc_cache = get_nfc_cache()
     nfc_cache.store("tag-patient1", patient1_id)
     nfc_cache.store("tag-patient2", patient2_id)
@@ -165,7 +165,9 @@ def multi_user_client(tmp_path, monkeypatch):
         async with AsyncSessionLocal() as session:
             yield session
 
-    monkeypatch.setattr("app.care_sessions.repository.BaseRepository._set_search_path", _noop_set_search_path, raising=False)
+    monkeypatch.setattr(
+        "app.care_sessions.repository.BaseRepository._set_search_path", _noop_set_search_path, raising=False
+    )
     app.dependency_overrides[get_db] = _get_db
 
     # Mock event publisher
@@ -180,35 +182,49 @@ def multi_user_client(tmp_path, monkeypatch):
     users = {
         "caregiver1": {
             "id": caregiver1_id,
-            "permissions": ["care-session:create", "care-session:read", "care-session:update", "feedback:create", "feedback:read"]
+            "permissions": [
+                "care-session:create",
+                "care-session:read",
+                "care-session:update",
+                "feedback:create",
+                "feedback:read",
+            ],
         },
         "caregiver2": {
             "id": caregiver2_id,
-            "permissions": ["care-session:create", "care-session:read", "care-session:update", "feedback:create", "feedback:read"]
+            "permissions": [
+                "care-session:create",
+                "care-session:read",
+                "care-session:update",
+                "feedback:create",
+                "feedback:read",
+            ],
         },
         "admin": {
             "id": admin_id,
-            "permissions": ["care-session:create", "care-session:read", "care-session:update", "care-session:delete", 
-                          "care-session:admin", "feedback:create", "feedback:read", "feedback:delete"]
+            "permissions": [
+                "care-session:create",
+                "care-session:read",
+                "care-session:update",
+                "care-session:delete",
+                "care-session:admin",
+                "feedback:create",
+                "feedback:read",
+                "feedback:delete",
+            ],
         },
-        "readonly": {
-            "id": readonly_user_id,
-            "permissions": ["care-session:read", "feedback:read"]
-        }
+        "readonly": {"id": readonly_user_id, "permissions": ["care-session:read", "feedback:read"]},
     }
 
     with TestClient(app) as client:
-        yield client, published, users, {
-            "patient1": patient1_id,
-            "patient2": patient2_id,
-            "patient3": patient3_id
-        }
+        yield client, published, users, {"patient1": patient1_id, "patient2": patient2_id, "patient3": patient3_id}
 
     app.dependency_overrides.clear()
 
 
 def set_user_context(user_info):
     """Helper to set user context for permissions testing"""
+
     class UserPayload:
         def __init__(self):
             self.internal_user_id = UUID(user_info["id"])
@@ -257,11 +273,15 @@ def test_multi_caregiver_different_patients(multi_user_client):
 
     # Add feedback for completed sessions
     set_user_context(users["caregiver1"])
-    feedback1 = client.post("/feedback/", json={"care_session_id": session1_id, "rating": 3, "patient_feedback": "Excellent"})
+    feedback1 = client.post(
+        "/feedback/", json={"care_session_id": session1_id, "rating": 3, "patient_feedback": "Excellent"}
+    )
     assert feedback1.status_code == 201
 
     set_user_context(users["caregiver2"])
-    feedback2 = client.post("/feedback/", json={"care_session_id": session2_id, "rating": 2, "patient_feedback": "Good"})
+    feedback2 = client.post(
+        "/feedback/", json={"care_session_id": session2_id, "rating": 2, "patient_feedback": "Good"}
+    )
     assert feedback2.status_code == 201
 
     # Admin can view all feedback
@@ -350,7 +370,9 @@ def test_admin_full_permissions(multi_user_client):
     assert complete_resp.status_code == 200
 
     # Create feedback
-    feedback_resp = client.post("/feedback/", json={"care_session_id": session_id, "rating": 3, "patient_feedback": "Great"})
+    feedback_resp = client.post(
+        "/feedback/", json={"care_session_id": session_id, "rating": 3, "patient_feedback": "Great"}
+    )
     assert feedback_resp.status_code == 201
     feedback_id = feedback_resp.json()["id"]
 

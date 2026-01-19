@@ -14,6 +14,7 @@ Expected Event Payload from NFC Service:
 Note: Tag IDs must be globally unique across all organizations.
 If the same physical tag ID can exist in multiple orgs, use tenant-namespaced approach instead.
 """
+
 import os
 import json
 import pika
@@ -34,41 +35,40 @@ class NFCEventConsumer:
         self.connection = None
         self.channel = None
         self.cache = get_nfc_cache()
-        
+
     def connect(self):
         credentials = pika.PlainCredentials(self.user, self.password)
         self.connection = pika.BlockingConnection(
             pika.ConnectionParameters(
-                host=self.host, port=self.port, credentials=credentials,
-                heartbeat=600, blocked_connection_timeout=300
+                host=self.host, port=self.port, credentials=credentials, heartbeat=600, blocked_connection_timeout=300
             )
         )
         self.channel = self.connection.channel()
-        self.channel.exchange_declare(exchange=self.exchange, exchange_type='topic', durable=True)
+        self.channel.exchange_declare(exchange=self.exchange, exchange_type="topic", durable=True)
         self.channel.queue_declare(queue=self.queue, durable=True)
-        self.channel.queue_bind(exchange=self.exchange, queue=self.queue, routing_key='nfc.resolved')
-        self.channel.queue_bind(exchange=self.exchange, queue=self.queue, routing_key='nfc.assigned')
-    
+        self.channel.queue_bind(exchange=self.exchange, queue=self.queue, routing_key="nfc.resolved")
+        self.channel.queue_bind(exchange=self.exchange, queue=self.queue, routing_key="nfc.assigned")
+
     def _on_message(self, ch, method, properties, body):
         try:
             message = json.loads(body)
-            tag_id = message.get('tag_id')
-            patient_id = message.get('patient_id')
-            
+            tag_id = message.get("tag_id")
+            patient_id = message.get("patient_id")
+
             if not tag_id:
                 logger.error(f"Missing tag_id in event: {message}")
                 ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
                 return
-            
+
             if not patient_id:
                 logger.error(f"Missing patient_id in event: {message}")
                 ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
                 return
-            
+
             # Store in global cache (no tenant namespace required)
             self.cache.store(tag_id, str(patient_id))
             logger.info(f"✅ Cached NFC mapping: {tag_id} → {patient_id}")
-            
+
             ch.basic_ack(delivery_tag=method.delivery_tag)
         except json.JSONDecodeError as e:
             logger.error(f"Invalid JSON in message: {e}")
@@ -76,7 +76,7 @@ class NFCEventConsumer:
         except Exception as e:
             logger.error(f"Error processing message: {e}", exc_info=True)
             ch.basic_nack(delivery_tag=method.delivery_tag, requeue=True)
-    
+
     def start_consuming(self):
         try:
             self.connect()
@@ -90,7 +90,7 @@ class NFCEventConsumer:
             logger.error(f"Consumer error: {e}")
             self.stop()
             raise
-    
+
     def stop(self):
         if self.channel and not self.channel.is_closed:
             self.channel.stop_consuming()

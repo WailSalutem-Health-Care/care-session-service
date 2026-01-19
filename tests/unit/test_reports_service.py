@@ -10,6 +10,7 @@ from app.care_sessions.exceptions import CareSessionNotFoundException
 @pytest.fixture
 def dummy_session():
     """Create a dummy care session for testing"""
+
     class DummySession:
         def __init__(self):
             self.id = uuid4()
@@ -21,12 +22,14 @@ def dummy_session():
             self.caregiver_notes = "Good session"
             self.created_at = datetime.now()
             self.updated_at = datetime.now()
+
     return DummySession()
 
 
 @pytest.fixture
 def dummy_patient():
     """Create a dummy patient for testing"""
+
     class DummyPatient:
         def __init__(self):
             self.id = uuid4()
@@ -35,12 +38,14 @@ def dummy_patient():
             self.email = "john.doe@example.com"
             self.careplan_type = "standard"
             self.is_active = True
+
     return DummyPatient()
 
 
 @pytest.fixture
 def dummy_user():
     """Create a dummy user for testing"""
+
     class DummyUser:
         def __init__(self):
             self.id = uuid4()
@@ -48,6 +53,7 @@ def dummy_user():
             self.last_name = "Smith"
             self.email = "jane.smith@example.com"
             self.is_active = True
+
     return DummyUser()
 
 
@@ -55,13 +61,13 @@ def dummy_user():
 def dummy_feedback():
     """Create a dummy feedback for testing"""
     return {
-        'id': uuid4(),
-        'care_session_id': uuid4(),
-        'patient_id': uuid4(),
-        'caregiver_id': uuid4(),
-        'feedback_date': datetime.now(),
-        'rating': 3,
-        'patient_feedback': "Good service"
+        "id": uuid4(),
+        "care_session_id": uuid4(),
+        "patient_id": uuid4(),
+        "caregiver_id": uuid4(),
+        "feedback_date": datetime.now(),
+        "rating": 3,
+        "patient_feedback": "Good service",
     }
 
 
@@ -71,7 +77,9 @@ async def test_get_individual_session_report_success(dummy_session, dummy_patien
 
     svc.repository = MagicMock()
     svc.repository.get_by_id = AsyncMock(return_value=dummy_session)
-    svc._load_cache_maps = AsyncMock(return_value=({dummy_session.patient_id: dummy_patient}, {dummy_session.caregiver_id: dummy_user}))
+    svc._load_cache_maps = AsyncMock(
+        return_value=({dummy_session.patient_id: dummy_patient}, {dummy_session.caregiver_id: dummy_user})
+    )
 
     result = await svc.get_individual_session_report(dummy_session.id)
 
@@ -101,7 +109,9 @@ async def test_get_period_session_report(dummy_session, dummy_patient, dummy_use
 
     svc.repository = MagicMock()
     svc.repository.get_sessions_in_period = AsyncMock(return_value=[dummy_session])
-    svc._load_cache_maps = AsyncMock(return_value=({dummy_session.patient_id: dummy_patient}, {dummy_session.caregiver_id: dummy_user}))
+    svc._load_cache_maps = AsyncMock(
+        return_value=({dummy_session.patient_id: dummy_patient}, {dummy_session.caregiver_id: dummy_user})
+    )
 
     items, next_cursor = await svc.get_period_session_report(start_date, end_date, limit=10)
 
@@ -121,7 +131,9 @@ async def test_get_period_session_report_with_cursor(dummy_session, dummy_patien
     svc.repository = MagicMock()
     # Return more than limit to trigger cursor
     svc.repository.get_sessions_in_period = AsyncMock(return_value=[dummy_session, dummy_session])
-    svc._load_cache_maps = AsyncMock(return_value=({dummy_session.patient_id: dummy_patient}, {dummy_session.caregiver_id: dummy_user}))
+    svc._load_cache_maps = AsyncMock(
+        return_value=({dummy_session.patient_id: dummy_patient}, {dummy_session.caregiver_id: dummy_user})
+    )
 
     items, next_cursor = await svc.get_period_session_report(start_date, end_date, limit=1, cursor=cursor)
 
@@ -135,7 +147,9 @@ async def test_get_all_time_session_report(dummy_session, dummy_patient, dummy_u
 
     svc.repository = MagicMock()
     svc.repository.get_all_sessions = AsyncMock(return_value=[dummy_session])
-    svc._load_cache_maps = AsyncMock(return_value=({dummy_session.patient_id: dummy_patient}, {dummy_session.caregiver_id: dummy_user}))
+    svc._load_cache_maps = AsyncMock(
+        return_value=({dummy_session.patient_id: dummy_patient}, {dummy_session.caregiver_id: dummy_user})
+    )
 
     items, next_cursor = await svc.get_all_time_session_report(limit=10)
 
@@ -204,11 +218,7 @@ async def test_get_patient_summary():
     svc = ReportsService(None)
 
     patient_id = uuid4()
-    summary_data = {
-        "total_sessions": 5,
-        "avg_rating": 4.0,
-        "distinct_caregivers": 3
-    }
+    summary_data = {"total_sessions": 5, "avg_rating": 4.0, "distinct_caregivers": 3}
 
     svc.repository = MagicMock()
     svc.repository.get_patient_summary = AsyncMock(return_value=summary_data)
@@ -232,12 +242,14 @@ async def test_get_patient_sessions():
         "check_out_time": datetime.now(),
         "status": "completed",
         "rating": 5,
-        "feedback_comment": "Great!"
+        "feedback_comment": "Great!",
     }
 
     svc.repository = MagicMock()
     svc.repository.get_patient_sessions = AsyncMock(return_value=([session_row], 1))
-    svc.repository.get_users_by_ids = AsyncMock(return_value={session_row["caregiver_id"]: MagicMock(first_name="Jane", last_name="Smith")})
+    svc.repository.get_users_by_ids = AsyncMock(
+        return_value={session_row["caregiver_id"]: MagicMock(first_name="Jane", last_name="Smith")}
+    )
     svc.repository.get_patients_by_ids = AsyncMock(return_value={patient_id: MagicMock(careplan_type="premium")})
 
     result = await svc.get_patient_sessions(patient_id)
@@ -253,8 +265,14 @@ async def test_get_feedback_report(dummy_feedback):
 
     svc.repository = MagicMock()
     svc.repository.get_feedback_list = AsyncMock(return_value=[dummy_feedback])
-    svc.repository.get_patients_by_ids = AsyncMock(return_value={dummy_feedback["patient_id"]: MagicMock(first_name="John", last_name="Doe", careplan_type="standard")})
-    svc.repository.get_users_by_ids = AsyncMock(return_value={dummy_feedback["caregiver_id"]: MagicMock(first_name="Jane", last_name="Smith")})
+    svc.repository.get_patients_by_ids = AsyncMock(
+        return_value={
+            dummy_feedback["patient_id"]: MagicMock(first_name="John", last_name="Doe", careplan_type="standard")
+        }
+    )
+    svc.repository.get_users_by_ids = AsyncMock(
+        return_value={dummy_feedback["caregiver_id"]: MagicMock(first_name="Jane", last_name="Smith")}
+    )
 
     result = await svc.get_feedback_report(limit=10)
 
@@ -267,11 +285,7 @@ async def test_get_feedback_report(dummy_feedback):
 async def test_get_feedback_summary():
     svc = ReportsService(None)
 
-    summary_data = {
-        "total_feedback": 10,
-        "avg_rating": 4.2,
-        "positive_feedback": 8
-    }
+    summary_data = {"total_feedback": 10, "avg_rating": 4.2, "positive_feedback": 8}
 
     svc.repository = MagicMock()
     svc.repository.get_feedback_summary = AsyncMock(return_value=summary_data)
@@ -294,13 +308,17 @@ async def test_get_caregiver_feedback():
         "rating": 4,
         "patient_feedback": "Good",
         "session_date": datetime.now(),
-        "feedback_date": datetime.now()
+        "feedback_date": datetime.now(),
     }
 
     svc.repository = MagicMock()
     svc.repository.get_caregiver_feedback = AsyncMock(return_value=([feedback_row], 1))
-    svc.repository.get_patients_by_ids = AsyncMock(return_value={feedback_row["patient_id"]: MagicMock(first_name="John", last_name="Doe")})
-    svc.repository.get_users_by_ids = AsyncMock(return_value={caregiver_id: MagicMock(first_name="Jane", last_name="Smith")})
+    svc.repository.get_patients_by_ids = AsyncMock(
+        return_value={feedback_row["patient_id"]: MagicMock(first_name="John", last_name="Doe")}
+    )
+    svc.repository.get_users_by_ids = AsyncMock(
+        return_value={caregiver_id: MagicMock(first_name="Jane", last_name="Smith")}
+    )
 
     result = await svc.get_caregiver_feedback(caregiver_id)
 
@@ -335,9 +353,9 @@ def test_generate_csv():
     assert isinstance(buffer, BytesIO)
     # Check that buffer contains CSV data
     buffer.seek(0)
-    content = buffer.read().decode('utf-8')
-    assert 'ID' in content
-    assert 'Patient Name' in content
+    content = buffer.read().decode("utf-8")
+    assert "ID" in content
+    assert "Patient Name" in content
 
 
 def test_generate_pdf():
@@ -382,8 +400,8 @@ def test_generate_caregiver_csv():
 
     assert isinstance(buffer, BytesIO)
     buffer.seek(0)
-    content = buffer.read().decode('utf-8')
-    assert 'Caregiver Name' in content
+    content = buffer.read().decode("utf-8")
+    assert "Caregiver Name" in content
 
 
 def test_generate_feedback_csv(dummy_feedback):
@@ -391,21 +409,21 @@ def test_generate_feedback_csv(dummy_feedback):
 
     # Mock feedback item
     feedback = MagicMock()
-    feedback.id = dummy_feedback['id']
-    feedback.session_id = dummy_feedback['care_session_id']
+    feedback.id = dummy_feedback["id"]
+    feedback.session_id = dummy_feedback["care_session_id"]
     feedback.patient_full_name = "John Doe"
     feedback.caregiver_full_name = "Jane Smith"
     feedback.careplan_type = "standard"
-    feedback.feedback_date = dummy_feedback['feedback_date']
-    feedback.rating = dummy_feedback['rating']
-    feedback.comment = dummy_feedback['patient_feedback']
+    feedback.feedback_date = dummy_feedback["feedback_date"]
+    feedback.rating = dummy_feedback["rating"]
+    feedback.comment = dummy_feedback["patient_feedback"]
 
     buffer = svc.generate_feedback_csv([feedback])
 
     assert isinstance(buffer, BytesIO)
     buffer.seek(0)
-    content = buffer.read().decode('utf-8')
-    assert 'Patient' in content
+    content = buffer.read().decode("utf-8")
+    assert "Patient" in content
 
 
 def test_generate_patient_sessions_csv():
@@ -428,8 +446,8 @@ def test_generate_patient_sessions_csv():
 
     assert isinstance(buffer, BytesIO)
     buffer.seek(0)
-    content = buffer.read().decode('utf-8')
-    assert 'Session ID' in content
+    content = buffer.read().decode("utf-8")
+    assert "Session ID" in content
 
 
 def test_generate_caregiver_feedback_csv():
@@ -450,5 +468,5 @@ def test_generate_caregiver_feedback_csv():
 
     assert isinstance(buffer, BytesIO)
     buffer.seek(0)
-    content = buffer.read().decode('utf-8')
-    assert 'Caregiver Name' in content
+    content = buffer.read().decode("utf-8")
+    assert "Caregiver Name" in content

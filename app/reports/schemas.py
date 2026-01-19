@@ -6,6 +6,7 @@ from pydantic import BaseModel
 
 class CareSessionReportItem(BaseModel):
     """Care session report item with cached names/emails."""
+
     id: UUID
     patient_id: UUID
     patient_full_name: Optional[str] = None
@@ -25,12 +26,14 @@ class CareSessionReportItem(BaseModel):
 
 class CareSessionReportPage(BaseModel):
     """Cursor-paginated report response."""
+
     items: List[CareSessionReportItem]
     next_cursor: Optional[str] = None
 
 
 class CaregiverListItem(BaseModel):
     """Caregiver list item for selectors."""
+
     id: UUID
     full_name: str
     email: Optional[str] = None
@@ -39,6 +42,7 @@ class CaregiverListItem(BaseModel):
 
 class CaregiverPerformanceItem(BaseModel):
     """Aggregated caregiver performance."""
+
     caregiver_id: UUID
     caregiver_full_name: str
     caregiver_email: Optional[str] = None
@@ -51,6 +55,7 @@ class CaregiverPerformanceItem(BaseModel):
 
 class PatientListItem(BaseModel):
     """Patient list item for selectors."""
+
     id: UUID
     full_name: str
     email: Optional[str] = None
@@ -59,6 +64,7 @@ class PatientListItem(BaseModel):
 
 class PatientSummary(BaseModel):
     """Patient summary metrics."""
+
     patient_id: UUID
     total_sessions: int
     avg_rating: Optional[float] = None
@@ -67,6 +73,7 @@ class PatientSummary(BaseModel):
 
 class PatientSessionItem(BaseModel):
     """Patient session history item."""
+
     session_id: UUID
     caregiver_id: UUID
     caregiver_full_name: Optional[str] = None
@@ -81,6 +88,7 @@ class PatientSessionItem(BaseModel):
 
 class PatientSessionPage(BaseModel):
     """Paginated patient session history."""
+
     items: List[PatientSessionItem]
     total: int
     limit: int
@@ -89,6 +97,7 @@ class PatientSessionPage(BaseModel):
 
 class FeedbackReportItem(BaseModel):
     """Feedback report item."""
+
     id: UUID
     session_id: UUID
     patient_id: UUID
@@ -103,12 +112,14 @@ class FeedbackReportItem(BaseModel):
 
 class FeedbackReportPage(BaseModel):
     """Cursor-paginated feedback list."""
+
     items: List[FeedbackReportItem]
     next_cursor: Optional[str] = None
 
 
 class FeedbackReportSummary(BaseModel):
     """Feedback summary metrics."""
+
     total_feedback: int
     avg_rating: Optional[float] = None
     positive_feedback: int
@@ -116,6 +127,7 @@ class FeedbackReportSummary(BaseModel):
 
 class CaregiverFeedbackItem(BaseModel):
     """Feedback item for caregiver reports."""
+
     id: UUID
     caregiver_id: UUID
     caregiver_full_name: Optional[str] = None
@@ -129,6 +141,7 @@ class CaregiverFeedbackItem(BaseModel):
 
 class CaregiverFeedbackPage(BaseModel):
     """Paginated caregiver feedback."""
+
     items: List[CaregiverFeedbackItem]
     total: int
     limit: int

@@ -25,17 +25,15 @@ def error_recovery_client(tmp_path, monkeypatch):
 
     async def create_tables():
         async with engine.begin() as conn:
+
             def _create(sync_conn):
-                sync_conn.execute(text(
-                    """
+                sync_conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS patients (
                         id TEXT PRIMARY KEY
                     )
-                    """
-                ))
+                    """))
 
-                sync_conn.execute(text(
-                    """
+                sync_conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS nfc_tags (
                         id TEXT PRIMARY KEY,
                         tag_id TEXT UNIQUE,
@@ -44,11 +42,9 @@ def error_recovery_client(tmp_path, monkeypatch):
                         issued_at TEXT,
                         deactivated_at TEXT
                     )
-                    """
-                ))
+                    """))
 
-                sync_conn.execute(text(
-                    """
+                sync_conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS care_sessions (
                         id TEXT PRIMARY KEY,
                         session_id TEXT UNIQUE,
@@ -62,11 +58,9 @@ def error_recovery_client(tmp_path, monkeypatch):
                         updated_at TEXT,
                         deleted_at TEXT
                     )
-                    """
-                ))
+                    """))
 
-                sync_conn.execute(text(
-                    """
+                sync_conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS users (
                         id TEXT PRIMARY KEY,
                         first_name TEXT,
@@ -74,11 +68,9 @@ def error_recovery_client(tmp_path, monkeypatch):
                         email TEXT,
                         is_active INTEGER
                     )
-                    """
-                ))
+                    """))
 
-                sync_conn.execute(text(
-                    """
+                sync_conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS feedback (
                         id TEXT PRIMARY KEY,
                         care_session_id TEXT,
@@ -89,8 +81,7 @@ def error_recovery_client(tmp_path, monkeypatch):
                         created_at TEXT,
                         deleted_at TEXT
                     )
-                    """
-                ))
+                    """))
 
             await conn.run_sync(_create)
 
@@ -118,7 +109,9 @@ def error_recovery_client(tmp_path, monkeypatch):
                 {"id": str(uuid4()), "tag": "inactive-tag", "pid": patient_id, "st": "inactive"},
             )
             await session.execute(
-                text("INSERT INTO users (id, first_name, last_name, email, is_active) VALUES (:id, :fn, :ln, :em, :act)"),
+                text(
+                    "INSERT INTO users (id, first_name, last_name, email, is_active) VALUES (:id, :fn, :ln, :em, :act)"
+                ),
                 {"id": caregiver_id, "fn": "Test", "ln": "Caregiver", "em": "test@care.com", "act": 1},
             )
             await session.commit()
@@ -127,6 +120,7 @@ def error_recovery_client(tmp_path, monkeypatch):
 
     # Populate NFC cache with test data (the service uses cache, not DB lookup)
     from app.messaging.nfc_cache import get_nfc_cache
+
     nfc_cache = get_nfc_cache()
     nfc_cache.store("test-tag", patient_id)
     # Note: inactive-tag is intentionally NOT added to cache to test error recovery
@@ -136,7 +130,9 @@ def error_recovery_client(tmp_path, monkeypatch):
         async with AsyncSessionLocal() as session:
             yield session
 
-    monkeypatch.setattr("app.care_sessions.repository.BaseRepository._set_search_path", _noop_set_search_path, raising=False)
+    monkeypatch.setattr(
+        "app.care_sessions.repository.BaseRepository._set_search_path", _noop_set_search_path, raising=False
+    )
     app.dependency_overrides[get_db] = _get_db
 
     # Mock event publisher
@@ -153,9 +149,14 @@ def error_recovery_client(tmp_path, monkeypatch):
             self.internal_user_id = UUID(caregiver_id)
             self.tenant_schema = None
             self.permissions = [
-                "care-session:create", "care-session:read", "care-session:update", 
-                "care-session:delete", "care-session:admin",
-                "feedback:create", "feedback:read", "feedback:delete"
+                "care-session:create",
+                "care-session:read",
+                "care-session:update",
+                "care-session:delete",
+                "care-session:admin",
+                "feedback:create",
+                "feedback:read",
+                "feedback:delete",
             ]
 
     app.dependency_overrides[verify_token] = lambda: UserPayload()
@@ -182,7 +183,9 @@ def test_duplicate_session_creation_recovery(error_recovery_client):
     assert "active session" in error_data["detail"].lower() or "duplicate" in error_data["detail"].lower()
 
     # Recovery: Complete the first session
-    complete_resp = client.put(f"/care-sessions/{session1_id}/complete", json={"caregiver_notes": "Completing to recover"})
+    complete_resp = client.put(
+        f"/care-sessions/{session1_id}/complete", json={"caregiver_notes": "Completing to recover"}
+    )
     assert complete_resp.status_code == 200
 
     # Now we can create a new session
@@ -255,7 +258,9 @@ def test_duplicate_feedback_recovery(error_recovery_client):
     feedback_id = feedback1.json()["id"]
 
     # Attempt to create duplicate feedback (should fail with 409)
-    feedback2 = client.post("/feedback/", json={"care_session_id": session_id, "rating": 2, "patient_feedback": "Trying again"})
+    feedback2 = client.post(
+        "/feedback/", json={"care_session_id": session_id, "rating": 2, "patient_feedback": "Trying again"}
+    )
     assert feedback2.status_code == 409
 
     # Recovery: Delete existing feedback first
@@ -263,7 +268,9 @@ def test_duplicate_feedback_recovery(error_recovery_client):
     assert delete_resp.status_code == 204
 
     # Now we can create new feedback
-    feedback3 = client.post("/feedback/", json={"care_session_id": session_id, "rating": 2, "patient_feedback": "New feedback"})
+    feedback3 = client.post(
+        "/feedback/", json={"care_session_id": session_id, "rating": 2, "patient_feedback": "New feedback"}
+    )
     assert feedback3.status_code == 201
 
 
@@ -286,7 +293,9 @@ def test_invalid_rating_recovery(error_recovery_client):
         assert resp.status_code == 422  # Validation error
 
     # Recovery: Use valid rating
-    valid_resp = client.post("/feedback/", json={"care_session_id": session_id, "rating": 3, "patient_feedback": "Valid rating"})
+    valid_resp = client.post(
+        "/feedback/", json={"care_session_id": session_id, "rating": 3, "patient_feedback": "Valid rating"}
+    )
     assert valid_resp.status_code == 201
 
 
@@ -353,7 +362,7 @@ def test_missing_required_fields_recovery(error_recovery_client):
 
     # SQLite doesn't support SEQUENCE, so session_id must always be provided
     # This test verifies that session_id is required
-    
+
     # Attempt to create feedback without required fields
     resp3 = client.post("/feedback/", json={})
     assert resp3.status_code == 422

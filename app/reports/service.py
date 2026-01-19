@@ -163,27 +163,32 @@ class ReportsService:
                     total_sessions=int(row.total_sessions or 0),
                     completed_sessions=int(row.completed_sessions or 0),
                     avg_rating=avg_ratings.get(row.id),
-                    avg_duration_minutes=float(row.avg_duration_minutes) if row.avg_duration_minutes is not None else None,
+                    avg_duration_minutes=(
+                        float(row.avg_duration_minutes) if row.avg_duration_minutes is not None else None
+                    ),
                     status=status,
                 )
             )
         return items
 
-
     def generate_caregiver_csv(self, caregivers: List[CaregiverPerformanceItem]) -> BytesIO:
         """Generate CSV file from caregiver performance data."""
         data = []
         for caregiver in caregivers:
-            data.append({
-                "Caregiver ID": str(caregiver.caregiver_id),
-                "Caregiver Name": caregiver.caregiver_full_name,
-                "Caregiver Email": caregiver.caregiver_email or "",
-                "Total Sessions": caregiver.total_sessions,
-                "Completed Sessions": caregiver.completed_sessions,
-                "Avg Rating": caregiver.avg_rating if caregiver.avg_rating is not None else "",
-                "Avg Duration (Minutes)": caregiver.avg_duration_minutes if caregiver.avg_duration_minutes is not None else "",
-                "Status": caregiver.status,
-            })
+            data.append(
+                {
+                    "Caregiver ID": str(caregiver.caregiver_id),
+                    "Caregiver Name": caregiver.caregiver_full_name,
+                    "Caregiver Email": caregiver.caregiver_email or "",
+                    "Total Sessions": caregiver.total_sessions,
+                    "Completed Sessions": caregiver.completed_sessions,
+                    "Avg Rating": caregiver.avg_rating if caregiver.avg_rating is not None else "",
+                    "Avg Duration (Minutes)": (
+                        caregiver.avg_duration_minutes if caregiver.avg_duration_minutes is not None else ""
+                    ),
+                    "Status": caregiver.status,
+                }
+            )
         df = pd.DataFrame(data)
         buffer = BytesIO()
         df.to_csv(buffer, index=False)
@@ -216,7 +221,11 @@ class ReportsService:
             c.drawString(50, y - 45, f"Total Sessions: {caregiver.total_sessions}")
             c.drawString(50, y - 60, f"Completed Sessions: {caregiver.completed_sessions}")
             c.drawString(50, y - 75, f"Avg Rating: {caregiver.avg_rating if caregiver.avg_rating is not None else ''}")
-            c.drawString(50, y - 90, f"Avg Duration (Minutes): {caregiver.avg_duration_minutes if caregiver.avg_duration_minutes is not None else ''}")
+            c.drawString(
+                50,
+                y - 90,
+                f"Avg Duration (Minutes): {caregiver.avg_duration_minutes if caregiver.avg_duration_minutes is not None else ''}",
+            )
             c.drawString(50, y - 105, f"Status: {caregiver.status}")
             c.setLineWidth(0.5)
             c.line(line_x1, y - 120, line_x2, y - 120)
@@ -290,18 +299,20 @@ class ReportsService:
         """Generate CSV file from patient session history."""
         data = []
         for session in sessions:
-            data.append({
-                "Session ID": str(session.session_id),
-                "Caregiver ID": str(session.caregiver_id),
-                "Caregiver Name": session.caregiver_full_name or "",
-                "Careplan Type": session.careplan_type or "",
-                "Check In Time": session.check_in_time.isoformat(),
-                "Check Out Time": session.check_out_time.isoformat() if session.check_out_time else "",
-                "Duration (Minutes)": session.duration_minutes if session.duration_minutes is not None else "",
-                "Status": session.status,
-                "Rating": session.rating if session.rating is not None else "",
-                "Feedback": session.feedback_comment or "",
-            })
+            data.append(
+                {
+                    "Session ID": str(session.session_id),
+                    "Caregiver ID": str(session.caregiver_id),
+                    "Caregiver Name": session.caregiver_full_name or "",
+                    "Careplan Type": session.careplan_type or "",
+                    "Check In Time": session.check_in_time.isoformat(),
+                    "Check Out Time": session.check_out_time.isoformat() if session.check_out_time else "",
+                    "Duration (Minutes)": session.duration_minutes if session.duration_minutes is not None else "",
+                    "Status": session.status,
+                    "Rating": session.rating if session.rating is not None else "",
+                    "Feedback": session.feedback_comment or "",
+                }
+            )
         df = pd.DataFrame(data)
         buffer = BytesIO()
         df.to_csv(buffer, index=False)
@@ -333,7 +344,11 @@ class ReportsService:
             c.drawString(50, y - 30, f"Careplan Type: {session.careplan_type or ''}")
             c.drawString(50, y - 45, f"Check In: {session.check_in_time}")
             c.drawString(50, y - 60, f"Check Out: {session.check_out_time}")
-            c.drawString(50, y - 75, f"Duration (Minutes): {session.duration_minutes if session.duration_minutes is not None else ''}")
+            c.drawString(
+                50,
+                y - 75,
+                f"Duration (Minutes): {session.duration_minutes if session.duration_minutes is not None else ''}",
+            )
             c.drawString(50, y - 90, f"Status: {session.status}")
             c.drawString(50, y - 105, f"Rating: {session.rating if session.rating is not None else ''}")
             c.drawString(50, y - 120, f"Feedback: {session.feedback_comment or ''}")
@@ -390,13 +405,13 @@ class ReportsService:
                     id=row["id"],
                     session_id=row["care_session_id"],
                     patient_id=row["patient_id"],
-                    patient_full_name=self._format_full_name(
-                        patient.first_name, patient.last_name
-                    ) if patient else None,
+                    patient_full_name=(
+                        self._format_full_name(patient.first_name, patient.last_name) if patient else None
+                    ),
                     caregiver_id=row["caregiver_id"],
-                    caregiver_full_name=self._format_full_name(
-                        caregiver.first_name, caregiver.last_name
-                    ) if caregiver else None,
+                    caregiver_full_name=(
+                        self._format_full_name(caregiver.first_name, caregiver.last_name) if caregiver else None
+                    ),
                     careplan_type=patient.careplan_type if patient else None,
                     feedback_date=row["feedback_date"],
                     rating=row["rating"],
@@ -417,16 +432,18 @@ class ReportsService:
         """Generate CSV file from feedback report data."""
         data = []
         for feedback in feedbacks:
-            data.append({
-                "Feedback ID": str(feedback.id),
-                "Session ID": str(feedback.session_id),
-                "Patient": feedback.patient_full_name or "",
-                "Caregiver": feedback.caregiver_full_name or "",
-                "Type": feedback.careplan_type or "",
-                "Date": feedback.feedback_date.isoformat(),
-                "Rating": feedback.rating,
-                "Feedback": feedback.comment or "",
-            })
+            data.append(
+                {
+                    "Feedback ID": str(feedback.id),
+                    "Session ID": str(feedback.session_id),
+                    "Patient": feedback.patient_full_name or "",
+                    "Caregiver": feedback.caregiver_full_name or "",
+                    "Type": feedback.careplan_type or "",
+                    "Date": feedback.feedback_date.isoformat(),
+                    "Rating": feedback.rating,
+                    "Feedback": feedback.comment or "",
+                }
+            )
         df = pd.DataFrame(data)
         buffer = BytesIO()
         df.to_csv(buffer, index=False)
@@ -490,12 +507,14 @@ class ReportsService:
                 caregiver_id=caregiver_id,
                 caregiver_full_name=caregiver_full_name,
                 patient_id=row["patient_id"],
-                patient_full_name=self._format_full_name(
-                    patients.get(row["patient_id"]).first_name,
-                    patients.get(row["patient_id"]).last_name,
-                )
-                if patients.get(row["patient_id"])
-                else None,
+                patient_full_name=(
+                    self._format_full_name(
+                        patients.get(row["patient_id"]).first_name,
+                        patients.get(row["patient_id"]).last_name,
+                    )
+                    if patients.get(row["patient_id"])
+                    else None
+                ),
                 rating=row["rating"],
                 comment=row.get("patient_feedback"),
                 session_date=row["session_date"],
@@ -509,16 +528,18 @@ class ReportsService:
         """Generate CSV file from caregiver feedback."""
         data = []
         for feedback in feedbacks:
-            data.append({
-                "Caregiver ID": str(feedback.caregiver_id),
-                "Caregiver Name": feedback.caregiver_full_name or "",
-                "Patient ID": str(feedback.patient_id),
-                "Patient Name": feedback.patient_full_name or "",
-                "Session Date": feedback.session_date.isoformat(),
-                "Rating": feedback.rating,
-                "Comment": feedback.comment or "",
-                "Feedback Date": feedback.feedback_date.isoformat(),
-            })
+            data.append(
+                {
+                    "Caregiver ID": str(feedback.caregiver_id),
+                    "Caregiver Name": feedback.caregiver_full_name or "",
+                    "Patient ID": str(feedback.patient_id),
+                    "Patient Name": feedback.patient_full_name or "",
+                    "Session Date": feedback.session_date.isoformat(),
+                    "Rating": feedback.rating,
+                    "Comment": feedback.comment or "",
+                    "Feedback Date": feedback.feedback_date.isoformat(),
+                }
+            )
         df = pd.DataFrame(data)
         buffer = BytesIO()
         df.to_csv(buffer, index=False)
@@ -596,23 +617,25 @@ class ReportsService:
         """Generate CSV file from session data"""
         data = []
         for session in sessions:
-            data.append({
-                'ID': str(session.id),
-                'Patient ID': str(session.patient_id),
-                'Patient Name': session.patient_full_name or '',
-                'Patient Email': session.patient_email or '',
-                'Careplan Type': session.careplan_type or '',
-                'Caregiver ID': str(session.caregiver_id),
-                'Caregiver Name': session.caregiver_full_name or '',
-                'Caregiver Email': session.caregiver_email or '',
-                'Check In Time': session.check_in_time.isoformat() if session.check_in_time else '',
-                'Check Out Time': session.check_out_time.isoformat() if session.check_out_time else '',
-                'Duration (Minutes)': session.duration_minutes if session.duration_minutes is not None else '',
-                'Status': session.status,
-                'Caregiver Notes': session.caregiver_notes or '',
-                'Created At': session.created_at.isoformat(),
-                'Updated At': session.updated_at.isoformat() if session.updated_at else '',
-            })
+            data.append(
+                {
+                    "ID": str(session.id),
+                    "Patient ID": str(session.patient_id),
+                    "Patient Name": session.patient_full_name or "",
+                    "Patient Email": session.patient_email or "",
+                    "Careplan Type": session.careplan_type or "",
+                    "Caregiver ID": str(session.caregiver_id),
+                    "Caregiver Name": session.caregiver_full_name or "",
+                    "Caregiver Email": session.caregiver_email or "",
+                    "Check In Time": session.check_in_time.isoformat() if session.check_in_time else "",
+                    "Check Out Time": session.check_out_time.isoformat() if session.check_out_time else "",
+                    "Duration (Minutes)": session.duration_minutes if session.duration_minutes is not None else "",
+                    "Status": session.status,
+                    "Caregiver Notes": session.caregiver_notes or "",
+                    "Created At": session.created_at.isoformat(),
+                    "Updated At": session.updated_at.isoformat() if session.updated_at else "",
+                }
+            )
         df = pd.DataFrame(data)
         buffer = BytesIO()
         df.to_csv(buffer, index=False)
@@ -650,7 +673,11 @@ class ReportsService:
             c.drawString(50, y - 105, f"Caregiver Email: {session.caregiver_email or ''}")
             c.drawString(50, y - 120, f"Check In: {session.check_in_time}")
             c.drawString(50, y - 135, f"Check Out: {session.check_out_time}")
-            c.drawString(50, y - 150, f"Duration (Minutes): {session.duration_minutes if session.duration_minutes is not None else ''}")
+            c.drawString(
+                50,
+                y - 150,
+                f"Duration (Minutes): {session.duration_minutes if session.duration_minutes is not None else ''}",
+            )
             c.drawString(50, y - 165, f"Status: {session.status}")
             c.drawString(50, y - 180, f"Notes: {session.caregiver_notes or ''}")
             c.setLineWidth(0.5)
