@@ -2,7 +2,7 @@
 
 from uuid import UUID
 from typing import Optional
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from fastapi import APIRouter, Depends, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.postgres import get_db
@@ -24,7 +24,6 @@ from app.feedback.schemas import (
 from app.db.models import Feedback
 from app.feedback.satisfaction import get_satisfaction_level, compute_metrics
 from app.auth.middleware import JWTPayload, verify_token, check_permission
-from app.db.models import Patient, User
 from app.utils.timezone import convert_to_cet
 
 router = APIRouter(

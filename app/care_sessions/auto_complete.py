@@ -1,6 +1,6 @@
 """Auto-complete sessions older than 2 hours"""
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 from app.db.models import CareSession
 from app.utils.timezone import now_cet
 

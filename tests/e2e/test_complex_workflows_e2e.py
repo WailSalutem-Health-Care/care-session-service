@@ -14,6 +14,105 @@ from app.db.repository import BaseRepository
 from app.auth.middleware import verify_token
 
 
+def _create_test_tables(sync_conn):
+    """Helper function to create test database tables."""
+    sync_conn.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS patients (
+                id TEXT PRIMARY KEY
+            )
+            """
+        )
+    )
+    sync_conn.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS nfc_tags (
+                id TEXT PRIMARY KEY,
+                tag_id TEXT UNIQUE,
+                patient_id TEXT,
+                status TEXT,
+                issued_at TEXT,
+                deactivated_at TEXT
+            )
+            """
+        )
+    )
+    sync_conn.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS care_sessions (
+                id TEXT PRIMARY KEY,
+                session_id TEXT UNIQUE,
+                patient_id TEXT,
+                caregiver_id TEXT,
+                check_in_time TEXT,
+                check_out_time TEXT,
+                status TEXT,
+                caregiver_notes TEXT,
+                created_at TEXT,
+                updated_at TEXT,
+                deleted_at TEXT
+            )
+            """
+        )
+    )
+    sync_conn.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS users (
+                id TEXT PRIMARY KEY,
+                first_name TEXT,
+                last_name TEXT,
+                email TEXT,
+                is_active INTEGER
+            )
+            """
+        )
+    )
+    sync_conn.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS feedback (
+                id TEXT PRIMARY KEY,
+                care_session_id TEXT,
+                patient_id TEXT,
+                caregiver_id TEXT,
+                rating INTEGER,
+                patient_feedback TEXT,
+                created_at TEXT,
+                deleted_at TEXT
+            )
+            """
+        )
+    )
+
+
+async def _insert_seed_data(AsyncSessionLocal, patients, caregivers):
+    """Helper function to insert seed data into test database."""
+    async with AsyncSessionLocal() as session:
+        # Insert patients
+        for i, patient_id in enumerate(patients):
+            await session.execute(text("INSERT INTO patients (id) VALUES (:id)"), {"id": patient_id})
+            # Create NFC tag for each patient
+            await session.execute(
+                text("INSERT INTO nfc_tags (id, tag_id, patient_id, status) VALUES (:id, :tag, :pid, :st)"),
+                {"id": str(uuid4()), "tag": f"tag-{i+1}", "pid": patient_id, "st": "active"},
+            )
+
+        # Insert caregivers
+        for i, caregiver_id in enumerate(caregivers):
+            await session.execute(
+                text(
+                    "INSERT INTO users (id, first_name, last_name, email, is_active) VALUES (:id, :fn, :ln, :em, :act)"
+                ),
+                {"id": caregiver_id, "fn": f"Caregiver{i+1}", "ln": "Smith", "em": f"cg{i+1}@care.com", "act": 1},
+            )
+
+        await session.commit()
+
+
 @pytest.fixture()
 def complex_workflow_client(tmp_path, monkeypatch):
     """Setup E2E test environment for complex business workflows"""
@@ -24,67 +123,10 @@ def complex_workflow_client(tmp_path, monkeypatch):
     engine = create_async_engine(database_url, echo=False, future=True)
     AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
 
+    # Create tables
     async def create_tables():
         async with engine.begin() as conn:
-
-            def _create(sync_conn):
-                sync_conn.execute(text("""
-                    CREATE TABLE IF NOT EXISTS patients (
-                        id TEXT PRIMARY KEY
-                    )
-                    """))
-
-                sync_conn.execute(text("""
-                    CREATE TABLE IF NOT EXISTS nfc_tags (
-                        id TEXT PRIMARY KEY,
-                        tag_id TEXT UNIQUE,
-                        patient_id TEXT,
-                        status TEXT,
-                        issued_at TEXT,
-                        deactivated_at TEXT
-                    )
-                    """))
-
-                sync_conn.execute(text("""
-                    CREATE TABLE IF NOT EXISTS care_sessions (
-                        id TEXT PRIMARY KEY,
-                        session_id TEXT UNIQUE,
-                        patient_id TEXT,
-                        caregiver_id TEXT,
-                        check_in_time TEXT,
-                        check_out_time TEXT,
-                        status TEXT,
-                        caregiver_notes TEXT,
-                        created_at TEXT,
-                        updated_at TEXT,
-                        deleted_at TEXT
-                    )
-                    """))
-
-                sync_conn.execute(text("""
-                    CREATE TABLE IF NOT EXISTS users (
-                        id TEXT PRIMARY KEY,
-                        first_name TEXT,
-                        last_name TEXT,
-                        email TEXT,
-                        is_active INTEGER
-                    )
-                    """))
-
-                sync_conn.execute(text("""
-                    CREATE TABLE IF NOT EXISTS feedback (
-                        id TEXT PRIMARY KEY,
-                        care_session_id TEXT,
-                        patient_id TEXT,
-                        caregiver_id TEXT,
-                        rating INTEGER,
-                        patient_feedback TEXT,
-                        created_at TEXT,
-                        deleted_at TEXT
-                    )
-                    """))
-
-            await conn.run_sync(_create)
+            await conn.run_sync(_create_test_tables)
 
     asyncio.get_event_loop().run_until_complete(create_tables())
 
@@ -98,31 +140,10 @@ def complex_workflow_client(tmp_path, monkeypatch):
     patients = [str(uuid4()) for _ in range(5)]
     caregivers = [str(uuid4()) for _ in range(3)]
 
-    async def insert_seed():
-        async with AsyncSessionLocal() as session:
-            # Insert patients
-            for i, patient_id in enumerate(patients):
-                await session.execute(text("INSERT INTO patients (id) VALUES (:id)"), {"id": patient_id})
-                # Create NFC tag for each patient
-                await session.execute(
-                    text("INSERT INTO nfc_tags (id, tag_id, patient_id, status) VALUES (:id, :tag, :pid, :st)"),
-                    {"id": str(uuid4()), "tag": f"tag-{i+1}", "pid": patient_id, "st": "active"},
-                )
+    # Insert seed data
+    asyncio.get_event_loop().run_until_complete(_insert_seed_data(AsyncSessionLocal, patients, caregivers))
 
-            # Insert caregivers
-            for i, caregiver_id in enumerate(caregivers):
-                await session.execute(
-                    text(
-                        "INSERT INTO users (id, first_name, last_name, email, is_active) VALUES (:id, :fn, :ln, :em, :act)"
-                    ),
-                    {"id": caregiver_id, "fn": f"Caregiver{i+1}", "ln": "Smith", "em": f"cg{i+1}@care.com", "act": 1},
-                )
-
-            await session.commit()
-
-    asyncio.get_event_loop().run_until_complete(insert_seed())
-
-    # Populate NFC cache with test data (the service uses cache, not DB lookup)
+    # Populate NFC cache with test data
     from app.messaging.nfc_cache import get_nfc_cache
 
     nfc_cache = get_nfc_cache()
@@ -252,7 +273,7 @@ def test_patient_multiple_sessions_same_day(complex_workflow_client):
     """Test a patient having multiple sessions on the same day with different caregivers"""
     client, published, patients, caregivers, set_current_user = complex_workflow_client
 
-    patient_id = patients[0]
+    # Use first patient (via tag-1) for multiple sessions
     session_ids = []
 
     # Morning session with caregiver 1

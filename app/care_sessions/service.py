@@ -2,7 +2,6 @@ from uuid import UUID
 from datetime import datetime
 from typing import Optional, Tuple, List
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 from app.db.models import CareSession
 from app.care_sessions.repository import CareSessionRepository
 from app.care_sessions.validators import SessionValidator
@@ -11,7 +10,6 @@ from app.care_sessions.exceptions import (
     CareSessionNotFoundException,
     DuplicateActiveSessionException,
 )
-from app.db.models import Patient
 from app.utils.timezone import now_cet
 
 
