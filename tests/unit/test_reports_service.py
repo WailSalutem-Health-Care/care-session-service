@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
-from datetime import datetime, date
+from datetime import datetime
 from io import BytesIO
 from app.reports.service import ReportsService
 from app.care_sessions.exceptions import CareSessionNotFoundException

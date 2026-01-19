@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 from uuid import uuid4
 from datetime import datetime
 from app.care_sessions.validators import SessionValidator
