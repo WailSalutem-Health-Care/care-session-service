@@ -5,40 +5,35 @@ from pydantic import BaseModel, Field
 
 
 class CreateCareSessionRequest(BaseModel):
-    """Request to create a new care session"""
     tag_id: str
     session_id: Optional[str] = None
 
 
 class CompleteCareSessionRequest(BaseModel):
-    """Request to complete/check-out a care session"""
     caregiver_notes: str
 
 
 class UpdateCareSessionRequest(BaseModel):
-    """Request to update a care session (Admin only)"""
-    check_in_time: datetime | None = None
-    check_out_time: datetime | None = None
-    caregiver_notes: str | None = None
-    status: str | None = None  # in_progress | completed
+    check_in_time: Optional[datetime] = None
+    check_out_time: Optional[datetime] = None
+    caregiver_notes: Optional[str] = None
+    status: Optional[str] = None
 
 
 class CareSessionResponse(BaseModel):
-    """Care session response"""
     id: UUID
     session_id: str
     patient_id: UUID
     caregiver_id: UUID
     check_in_time: datetime
-    check_out_time: datetime | None = None
+    check_out_time: Optional[datetime] = None
     status: str  # in_progress | completed
-    caregiver_notes: str | None = None
+    caregiver_notes: Optional[str] = None
     created_at: datetime
-    updated_at: datetime | None = None
+    updated_at: Optional[datetime] = None
 
 
 class CareSessionListResponse(BaseModel):
-    """Paginated list of care sessions"""
     sessions: List[CareSessionResponse]
     total: int
     page: int

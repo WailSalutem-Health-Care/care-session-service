@@ -27,10 +27,10 @@ class ReportsRepository(BaseRepository):
         self,
         start_date: datetime,
         end_date: datetime,
-        limit: int | None = 100,
-        offset: int | None = 0,
-        cursor_time: datetime | None = None,
-        cursor_id: UUID | None = None,
+        limit: Optional[int] = 100,
+        offset: Optional[int] = 0,
+        cursor_time: Optional[datetime] = None,
+        cursor_id: Optional[UUID] = None,
     ) -> List[CareSession]:
         """Get care sessions within a date range"""
         await self._set_search_path()
@@ -61,10 +61,10 @@ class ReportsRepository(BaseRepository):
 
     async def get_all_sessions(
         self,
-        limit: int | None = 100,
-        offset: int | None = 0,
-        cursor_time: datetime | None = None,
-        cursor_id: UUID | None = None,
+        limit: Optional[int] = 100,
+        offset: Optional[int] = 0,
+        cursor_time: Optional[datetime] = None,
+        cursor_id: Optional[UUID] = None,
     ) -> List[CareSession]:
         """Get all care sessions"""
         await self._set_search_path()

@@ -11,3 +11,4 @@ pydantic-settings
 requests
 pyyaml
 reportlab
+tenacity

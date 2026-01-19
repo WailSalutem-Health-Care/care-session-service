@@ -4,7 +4,12 @@ metadata:
   name: care-session-service
   namespace: wailsalutem-suite
 spec:
-  replicas: 1
+  replicas: 3  # High Availability - minimum 3 replicas
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0  # Zero downtime deployment
   selector:
     matchLabels:
       app: care-session-service
@@ -12,6 +17,7 @@ spec:
     metadata:
       labels:
         app: care-session-service
+        version: v1
     spec:
       containers:
         - name: care-session-service
@@ -19,8 +25,52 @@ spec:
           imagePullPolicy: Always
           ports:
             - containerPort: 8000
+              name: http
+              protocol: TCP
           envFrom:
             - configMapRef:
                 name: wailsalutem-backend-config
             - secretRef:
                 name: wailsalutem-backend-secrets
+          env:
+            - name: APP_VERSION
+              value: "1.0.0"
+          volumeMounts:
+            - name: logs
+              mountPath: /app/logs
+            - name: reports
+              mountPath: /app/reports
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            successThreshold: 1
+            failureThreshold: 3
+      volumes:
+        - name: logs
+          persistentVolumeClaim:
+            claimName: care-session-service-logs
+        - name: reports
+          persistentVolumeClaim:
+            claimName: care-session-service-reports

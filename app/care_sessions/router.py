@@ -47,10 +47,11 @@ async def create_care_session(
     """
     Create a new care session by scanning an NFC tag.
     
-    Workflow:
-    1. Validates NFC tag exists and is active
-    2. Checks for duplicate active sessions for patient
-    3. Creates session with check_in timestamp
+    Flow:
+    1. Caregiver logs in via Keycloak → gets JWT with caregiver_id
+    2. Caregiver scans NFC tag → mobile app sends tag_id to this endpoint
+    3. This service gets patient_id from NFC service (via RabbitMQ event)
+    4. Creates session with caregiver_id (from JWT) + patient_id (from NFC)
     
     Required permission: care-session:create (CAREGIVER role)
     """
@@ -59,7 +60,7 @@ async def create_care_session(
     service = CareSessionService(db, jwt_payload.tenant_schema)
     session = await service.create_session(
         tag_id=request.tag_id,
-        caregiver_id=jwt_payload.internal_user_id,
+        caregiver_id=jwt_payload.internal_user_id,  # From Keycloak JWT
         session_id=request.session_id,
     )
     

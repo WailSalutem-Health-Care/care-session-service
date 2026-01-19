@@ -3,6 +3,7 @@ from uuid import uuid4
 from sqlalchemy import Column, String, DateTime, Text, Boolean, Date, Integer, ForeignKey, func
 from sqlalchemy.dialects.postgresql import UUID
 from app.db.postgres import Base
+from app.utils.timezone import now_cet
 
 class CareSession(Base):
     """
@@ -16,12 +17,12 @@ class CareSession(Base):
     session_id = Column(String(50), unique=True, nullable=False, index=True)
     patient_id = Column(UUID(as_uuid=True), nullable=False, index=True)
     caregiver_id = Column(UUID(as_uuid=True), nullable=False, index=True)
-    check_in_time = Column(DateTime, default=func.now(), nullable=False)
+    check_in_time = Column(DateTime, default=now_cet, nullable=False)
     check_out_time = Column(DateTime, nullable=True)
     status = Column(String(50), default="in_progress", nullable=False, index=True) 
     caregiver_notes = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=func.now(), nullable=False)
-    updated_at = Column(DateTime, default=None, onupdate=func.now(), nullable=True)
+    created_at = Column(DateTime, default=now_cet, nullable=False)
+    updated_at = Column(DateTime, default=None, nullable=True)  # Updated explicitly in repository
     deleted_at = Column(DateTime, nullable=True)
 
 class Organization(Base):
@@ -109,5 +110,5 @@ class Feedback(Base):
     caregiver_id = Column(UUID(as_uuid=True), nullable=False, index=True)
     rating = Column(Integer, nullable=False)  # 1=Dissatisfied, 2=Neutral, 3=Satisfied
     patient_feedback = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=func.now(), nullable=False)
+    created_at = Column(DateTime, default=now_cet, nullable=False)
     deleted_at = Column(DateTime, nullable=True)

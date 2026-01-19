@@ -12,6 +12,7 @@ from app.care_sessions.exceptions import (
     DuplicateActiveSessionException,
 )
 from app.db.models import Patient
+from app.utils.timezone import now_cet
 
 
 class CareSessionService:
@@ -19,8 +20,9 @@ class CareSessionService:
     
     def __init__(self, db: AsyncSession, tenant_schema: str):
         self.db = db
+        self.tenant_schema = tenant_schema
         self.repository = CareSessionRepository(db, tenant_schema)
-        self.validator = SessionValidator(db, self.repository)
+        self.validator = SessionValidator(db, self.repository, tenant_schema)
     
     async def _get_session_or_404(self, id: UUID) -> CareSession:
         """Get session by UUID or raise 404"""
@@ -33,29 +35,31 @@ class CareSessionService:
         self,
         tag_id: str,
         caregiver_id: UUID,
-        session_id: str | None = None,
+        session_id: Optional[str] = None,
     ) -> CareSession:
         """
         Create a new care session by scanning an NFC tag.
         
-        Steps:
-        1. Validate NFC tag exists and is active
-        2. Check for duplicate active sessions
-        3. Create session record
+        Flow:
+        1. Caregiver logs in via Keycloak → gets JWT with caregiver_id
+        2. Caregiver scans NFC tag → mobile app sends tag_id to this endpoint
+        3. This service gets patient_id from NFC event cache (via RabbitMQ)
+        4. Creates session with caregiver_id (from JWT) + patient_id (from NFC event)
         """
-        # Validate NFC tag
-        nfc_tag = await self.validator.validate_and_get_nfc_tag(tag_id)
+        # Get patient_id from NFC event cache (populated by RabbitMQ consumer)
+        patient_id = self.validator.get_patient_id_from_nfc_event(tag_id)
         
         # Check for duplicate active sessions
-        existing_session = await self.repository.get_active_by_patient(nfc_tag.patient_id)
+        existing_session = await self.repository.get_active_by_patient(patient_id)
         if existing_session:
-            raise DuplicateActiveSessionException(nfc_tag.patient_id)
+            raise DuplicateActiveSessionException(patient_id)
         
-        # Create session
+        # Create session with CET timestamp
         new_session = CareSession(
-            patient_id=nfc_tag.patient_id,
+            patient_id=patient_id,
             caregiver_id=caregiver_id,
             status="in_progress",
+            check_in_time=now_cet(),  # Explicitly set check_in_time in CET
         )
         # Only set public session_id if provided; otherwise let the model/DB default generate it
         if session_id:
@@ -94,8 +98,8 @@ class CareSessionService:
         self.validator.validate_session_in_progress(session)
         self.validator.validate_caregiver_ownership(session, caregiver_id)
         
-        # Update session
-        session.check_out_time = datetime.utcnow()
+        # Update session with CET timestamp
+        session.check_out_time = now_cet()
         session.caregiver_notes = caregiver_notes
         session.status = "completed"
         
@@ -106,10 +110,10 @@ class CareSessionService:
     async def update_session(
         self,
         session_id: UUID,
-        check_in_time: datetime | None = None,
-        check_out_time: datetime | None = None,
-        caregiver_notes: str | None = None,
-        status: str | None = None,
+        check_in_time: Optional[datetime] = None,
+        check_out_time: Optional[datetime] = None,
+        caregiver_notes: Optional[str] = None,
+        status: Optional[str] = None,
     ) -> CareSession:
         """
         Update a care session (Admins only - for corrections/adjustments).

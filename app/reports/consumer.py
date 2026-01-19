@@ -9,6 +9,7 @@ from typing import Dict, Optional
 
 from app.db.postgres import AsyncSessionLocal
 from app.reports.repository import ReportsRepository
+from app.utils.timezone import now_cet
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -97,7 +98,7 @@ class OrganizationEventConsumer:
 
         first_name = self._get_value(event_data, "first_name", "firstName")
         last_name = self._get_value(event_data, "last_name", "lastName")
-        created_at = self._parse_datetime(self._get_value(event_data, "created_at", "createdAt")) or datetime.utcnow()
+        created_at = self._parse_datetime(self._get_value(event_data, "created_at", "createdAt")) or now_cet()
         updated_at = self._parse_datetime(self._get_value(event_data, "updated_at", "updatedAt")) or created_at
         is_active = self._get_value(event_data, "is_active", "isActive")
         if is_active is None:
@@ -131,7 +132,7 @@ class OrganizationEventConsumer:
 
         first_name = self._get_value(event_data, "first_name", "firstName")
         last_name = self._get_value(event_data, "last_name", "lastName")
-        created_at = self._parse_datetime(self._get_value(event_data, "created_at", "createdAt")) or datetime.utcnow()
+        created_at = self._parse_datetime(self._get_value(event_data, "created_at", "createdAt")) or now_cet()
         updated_at = self._parse_datetime(self._get_value(event_data, "updated_at", "updatedAt")) or created_at
         is_active = self._get_value(event_data, "is_active", "isActive")
         if is_active is None:
@@ -169,7 +170,7 @@ class OrganizationEventConsumer:
                 if not patient_id:
                     logger.warning("Missing patient_id in delete event")
                     return
-                deleted_at = self._parse_datetime(self._get_value(event_data, "deleted_at", "deletedAt")) or datetime.utcnow()
+                deleted_at = self._parse_datetime(self._get_value(event_data, "deleted_at", "deletedAt")) or now_cet()
                 await repository.mark_patient_deleted(UUID(patient_id), deleted_at)
             elif event_type == "patient.status_changed":
                 patient_id = self._get_value(event_data, "patient_id", "patientId")
@@ -177,7 +178,7 @@ class OrganizationEventConsumer:
                     logger.warning("Missing patient_id in status event")
                     return
                 new_status = self._get_value(event_data, "new_status", "newStatus")
-                changed_at = self._parse_datetime(self._get_value(event_data, "changed_at", "changedAt")) or datetime.utcnow()
+                changed_at = self._parse_datetime(self._get_value(event_data, "changed_at", "changedAt")) or now_cet()
                 is_active = (str(new_status).lower() == "active")
                 await repository.update_patient_status(UUID(patient_id), is_active, changed_at)
             elif event_type == "user.created":
@@ -193,7 +194,7 @@ class OrganizationEventConsumer:
                 role = self._get_value(event_data, "role")
                 if role and str(role).upper() != "CAREGIVER":
                     return
-                deleted_at = self._parse_datetime(self._get_value(event_data, "deleted_at", "deletedAt")) or datetime.utcnow()
+                deleted_at = self._parse_datetime(self._get_value(event_data, "deleted_at", "deletedAt")) or now_cet()
                 await repository.mark_user_deleted(UUID(user_id), deleted_at)
             elif event_type == "user.status_changed":
                 user_id = self._get_value(event_data, "user_id", "userId")
@@ -204,7 +205,7 @@ class OrganizationEventConsumer:
                 if role and str(role).upper() != "CAREGIVER":
                     return
                 new_status = self._get_value(event_data, "new_status", "newStatus")
-                changed_at = self._parse_datetime(self._get_value(event_data, "changed_at", "changedAt")) or datetime.utcnow()
+                changed_at = self._parse_datetime(self._get_value(event_data, "changed_at", "changedAt")) or now_cet()
                 is_active = (str(new_status).lower() == "active")
                 await repository.update_user_status(UUID(user_id), is_active, changed_at)
             elif event_type == "user.role_changed":
@@ -214,7 +215,7 @@ class OrganizationEventConsumer:
                     return
                 new_role = self._get_value(event_data, "new_role", "newRole")
                 old_role = self._get_value(event_data, "old_role", "oldRole")
-                changed_at = self._parse_datetime(self._get_value(event_data, "changed_at", "changedAt")) or datetime.utcnow()
+                changed_at = self._parse_datetime(self._get_value(event_data, "changed_at", "changedAt")) or now_cet()
 
                 if old_role and str(old_role).upper() == "CAREGIVER" and (not new_role or str(new_role).upper() != "CAREGIVER"):
                     await repository.update_user_role(UUID(user_id), new_role, False, changed_at)
