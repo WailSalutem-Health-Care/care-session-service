@@ -101,8 +101,7 @@ class TestMetricFunctions:
         record_care_session_operation("create", "success", tenant_id="test")
 
         mock_counter.add.assert_called_once_with(
-            1,
-            {"operation_type": "create", "status": "success", "tenant_id": "test"}
+            1, {"operation_type": "create", "status": "success", "tenant_id": "test"}
         )
 
     @patch("app.observability.metrics.care_session_operations_counter")
@@ -110,10 +109,7 @@ class TestMetricFunctions:
         """Test recording operation without tenant_id."""
         record_care_session_operation("update", "success")
 
-        mock_counter.add.assert_called_once_with(
-            1,
-            {"operation_type": "update", "status": "success"}
-        )
+        mock_counter.add.assert_called_once_with(1, {"operation_type": "update", "status": "success"})
 
     @patch("app.observability.metrics.care_session_operation_duration")
     def test_record_operation_duration(self, mock_histogram):
@@ -121,8 +117,7 @@ class TestMetricFunctions:
         record_operation_duration("complete", 123.45, "success", tenant_id="test")
 
         mock_histogram.record.assert_called_once_with(
-            123.45,
-            {"operation_type": "complete", "status": "success", "tenant_id": "test"}
+            123.45, {"operation_type": "complete", "status": "success", "tenant_id": "test"}
         )
 
     @patch("app.observability.metrics.care_sessions_active_gauge")
