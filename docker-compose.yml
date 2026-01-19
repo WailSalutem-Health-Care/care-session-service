@@ -11,20 +11,9 @@ services:
     depends_on:
       rabbitmq:
         condition: service_healthy
-
-  care-session-consumer:
-    build: .
-    container_name: care-session-consumer
-    env_file:
-      - .env
-    command: ["python", "start_consumer.py"]
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
-    restart: unless-stopped
-    volumes:
-      - ./app:/app/app
-      - ./start_consumer.py:/app/start_consumer.py
+    command: >
+      sh -c "python start_consumer.py &
+             uvicorn app.main:app --host 0.0.0.0 --port 8000"
 
   rabbitmq:
     image: rabbitmq:3-management

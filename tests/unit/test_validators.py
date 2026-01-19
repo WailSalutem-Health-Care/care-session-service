@@ -54,7 +54,7 @@ async def test_get_patient_id_from_nfc_event_success(mock_db_session):
         result = validator.get_patient_id_from_nfc_event("TAG123")
 
         assert result == patient_id
-        mock_cache.get_patient_id.assert_called_once_with("TAG123", TEST_TENANT_SCHEMA)
+        mock_cache.get_patient_id.assert_called_once_with("TAG123")
 
 
 @pytest.mark.asyncio

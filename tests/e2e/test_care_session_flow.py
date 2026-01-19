@@ -38,7 +38,7 @@ async def test_full_care_session_flow(client: AsyncClient, mock_jwt_payload):
     patient_id = uuid4()
     session_id = uuid4()
     tag_id = "TEST_TAG_E2E_FLOW"
-    cache.store(tag_id, str(patient_id), mock_jwt_payload.tenant_schema)
+    cache.store(tag_id, str(patient_id))
     
     mock_session = create_mock_session(session_id, patient_id)
     completed_session = create_mock_session(
@@ -118,7 +118,7 @@ async def test_create_session_duplicate_blocked(client: AsyncClient, mock_jwt_pa
     cache = get_nfc_cache()
     patient_id = uuid4()
     tag_id = "TEST_TAG_DUP"
-    cache.store(tag_id, str(patient_id), mock_jwt_payload.tenant_schema)
+    cache.store(tag_id, str(patient_id))
     
     app.dependency_overrides[verify_token] = lambda: mock_jwt_payload
     

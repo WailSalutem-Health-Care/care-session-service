@@ -21,7 +21,7 @@ class SessionValidator:
         self.nfc_cache = get_nfc_cache()
     
     def get_patient_id_from_nfc_event(self, tag_id: str) -> UUID:
-        patient_id = self.nfc_cache.get_patient_id(tag_id, self.tenant_schema)
+        patient_id = self.nfc_cache.get_patient_id(tag_id)
         if not patient_id:
             raise NFCTagNotFoundException(tag_id)
         return patient_id
