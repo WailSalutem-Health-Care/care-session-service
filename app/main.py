@@ -65,12 +65,12 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Care Session Service", lifespan=lifespan)
 
 # Add Telemetry Middleware (before CORS)
-from app.observability.middleware import TelemetryMiddleware
+from app.observability.middleware import TelemetryMiddleware  # noqa: E402
 
 app.add_middleware(TelemetryMiddleware, excluded_paths=["/health"])
 
 # Instrument FastAPI
-from app.observability.telemetry import instrument_fastapi
+from app.observability.telemetry import instrument_fastapi  # noqa: E402
 
 instrument_fastapi(app)
 

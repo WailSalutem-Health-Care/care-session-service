@@ -16,12 +16,18 @@ from app.auth.middleware import verify_token
 
 def _create_test_tables(sync_conn):
     """Helper function to create test database tables."""
-    sync_conn.execute(text("""
+    sync_conn.execute(
+        text(
+            """
             CREATE TABLE IF NOT EXISTS patients (
                 id TEXT PRIMARY KEY
             )
-            """))
-    sync_conn.execute(text("""
+            """
+        )
+    )
+    sync_conn.execute(
+        text(
+            """
             CREATE TABLE IF NOT EXISTS nfc_tags (
                 id TEXT PRIMARY KEY,
                 tag_id TEXT UNIQUE,
@@ -30,8 +36,12 @@ def _create_test_tables(sync_conn):
                 issued_at TEXT,
                 deactivated_at TEXT
             )
-            """))
-    sync_conn.execute(text("""
+            """
+        )
+    )
+    sync_conn.execute(
+        text(
+            """
             CREATE TABLE IF NOT EXISTS care_sessions (
                 id TEXT PRIMARY KEY,
                 session_id TEXT UNIQUE,
@@ -45,8 +55,12 @@ def _create_test_tables(sync_conn):
                 updated_at TEXT,
                 deleted_at TEXT
             )
-            """))
-    sync_conn.execute(text("""
+            """
+        )
+    )
+    sync_conn.execute(
+        text(
+            """
             CREATE TABLE IF NOT EXISTS users (
                 id TEXT PRIMARY KEY,
                 first_name TEXT,
@@ -54,8 +68,12 @@ def _create_test_tables(sync_conn):
                 email TEXT,
                 is_active INTEGER
             )
-            """))
-    sync_conn.execute(text("""
+            """
+        )
+    )
+    sync_conn.execute(
+        text(
+            """
             CREATE TABLE IF NOT EXISTS feedback (
                 id TEXT PRIMARY KEY,
                 care_session_id TEXT,
@@ -66,7 +84,9 @@ def _create_test_tables(sync_conn):
                 created_at TEXT,
                 deleted_at TEXT
             )
-            """))
+            """
+        )
+    )
 
 
 async def _insert_seed_data(AsyncSessionLocal, patients, caregivers):
