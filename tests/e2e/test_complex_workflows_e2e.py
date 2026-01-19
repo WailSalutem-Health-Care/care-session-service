@@ -133,7 +133,7 @@ def complex_workflow_client(tmp_path, monkeypatch):
     from app.messaging.nfc_cache import get_nfc_cache
     nfc_cache = get_nfc_cache()
     for i, patient_id in enumerate(patients):
-        nfc_cache.store(f"tag-{i+1}", patient_id, None)  # tenant_schema is None in UserPayload
+        nfc_cache.store(f"tag-{i+1}", patient_id)
 
     # Provide async DB dependency override
     async def _get_db():
