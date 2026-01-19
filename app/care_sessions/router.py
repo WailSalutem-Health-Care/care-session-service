@@ -46,24 +46,24 @@ async def create_care_session(
 ):
     """
     Create a new care session by scanning an NFC tag.
-    
+
     Flow:
     1. Caregiver logs in via Keycloak → gets JWT with caregiver_id
     2. Caregiver scans NFC tag → mobile app sends tag_id to this endpoint
     3. This service gets patient_id from NFC service (via RabbitMQ event)
     4. Creates session with caregiver_id (from JWT) + patient_id (from NFC)
-    
+
     Required permission: care-session:create (CAREGIVER role)
     """
     check_permission(jwt_payload, "care-session:create")
-    
+
     service = CareSessionService(db, jwt_payload.tenant_schema)
     session = await service.create_session(
         tag_id=request.tag_id,
         caregiver_id=jwt_payload.internal_user_id,  # From Keycloak JWT
         session_id=request.session_id,
     )
-    
+
     return to_response(session)
 
 
@@ -75,14 +75,14 @@ async def get_care_session(
 ):
     """
     Get care session details by UUID.
-    
+
     Required permission: care-session:read (CAREGIVER, PATIENT roles)
     """
     check_permission(jwt_payload, "care-session:read")
-    
+
     service = CareSessionService(db, jwt_payload.tenant_schema)
     session = await service.get_session(session_id)
-    
+
     return to_response(session)
 
 
@@ -95,23 +95,23 @@ async def complete_care_session(
 ):
     """
     Complete a care session (check-out) and add caregiver notes.
-    
+
     Workflow:
     1. Validates session exists and is in progress
     2. Verifies caregiver owns the session
     3. Sets check_out_time, adds notes, marks as completed
-    
+
     Required permission: care-session:update (CAREGIVER role)
     """
     check_permission(jwt_payload, "care-session:update")
-    
+
     service = CareSessionService(db, jwt_payload.tenant_schema)
     session = await service.complete_session(
         session_id=session_id,
         caregiver_notes=request.caregiver_notes,
         caregiver_id=jwt_payload.internal_user_id,
     )
-    
+
     return to_response(session)
 
 
@@ -129,7 +129,7 @@ async def list_care_sessions(
 ):
     """List care sessions with optional filters and pagination."""
     check_permission(jwt_payload, "care-session:read")
-    
+
     service = CareSessionService(db, jwt_payload.tenant_schema)
     sessions, total = await service.list_sessions(
         caregiver_id=caregiver_id,
@@ -140,9 +140,9 @@ async def list_care_sessions(
         page=page,
         page_size=page_size,
     )
-    
+
     total_pages = (total + page_size - 1) // page_size
-    
+
     return CareSessionListResponse(
         sessions=[to_response(session) for session in sessions],
         total=total,
@@ -161,19 +161,19 @@ async def update_care_session(
 ):
     """
     Update a care session (Admins only).
-    
+
     Allows admins to correct or adjust session data:
     - Update check-in time
     - Update check-out time
     - Update caregiver notes
     - Change session status
-    
+
     All fields are optional - only provided fields will be updated.
-    
+
     Required permission: care-session:admin (ORG_ADMIN, SUPER_ADMIN roles)
     """
     check_permission(jwt_payload, "care-session:admin")
-    
+
     service = CareSessionService(db, jwt_payload.tenant_schema)
     session = await service.update_session(
         session_id=session_id,
@@ -182,7 +182,7 @@ async def update_care_session(
         caregiver_notes=request.caregiver_notes,
         status=request.status,
     )
-    
+
     return to_response(session)
 
 
@@ -194,18 +194,15 @@ async def delete_care_session(
 ):
     """
     ⚠️ Delete a care session (Developers only - for testing/development).
-    
+
     Required permission: care-session:admin (ORG_ADMIN, SUPER_ADMIN roles)
     """
     check_permission(jwt_payload, "care-session:admin")
-    
+
     service = CareSessionService(db, jwt_payload.tenant_schema)
     deleted = await service.delete_session(session_id)
-    
+
     if not deleted:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Care session not found"
-        )
-    
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Care session not found")
+
     return None

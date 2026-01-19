@@ -23,7 +23,9 @@ from app.auth.middleware import JWTPayload, verify_token, check_permission
 from app.utils.timezone import convert_to_cet
 
 
-def get_reports_service(db: AsyncSession = Depends(get_db), jwt_payload: JWTPayload = Depends(verify_token)) -> ReportsService:
+def get_reports_service(
+    db: AsyncSession = Depends(get_db), jwt_payload: JWTPayload = Depends(verify_token)
+) -> ReportsService:
     """Dependency to get ReportsService"""
     repository = ReportsRepository(db, jwt_payload.tenant_schema)
     return ReportsService(repository)
@@ -119,10 +121,22 @@ async def download_period_session_report(
 
     if format == "csv":
         csv_buffer = service.generate_csv(sessions)
-        return StreamingResponse(csv_buffer, media_type="text/csv", headers={"Content-Disposition": f"attachment; filename=sessions_{start_date.date()}_to_{end_date.date()}.csv"})
+        return StreamingResponse(
+            csv_buffer,
+            media_type="text/csv",
+            headers={
+                "Content-Disposition": f"attachment; filename=sessions_{start_date.date()}_to_{end_date.date()}.csv"
+            },
+        )
     elif format == "pdf":
         pdf_buffer = service.generate_pdf(sessions, f"Care Sessions Report - {start_date.date()} to {end_date.date()}")
-        return StreamingResponse(pdf_buffer, media_type="application/pdf", headers={"Content-Disposition": f"attachment; filename=sessions_{start_date.date()}_to_{end_date.date()}.pdf"})
+        return StreamingResponse(
+            pdf_buffer,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"attachment; filename=sessions_{start_date.date()}_to_{end_date.date()}.pdf"
+            },
+        )
     else:
         raise HTTPException(status_code=400, detail="Invalid format")
 
@@ -139,10 +153,16 @@ async def download_all_time_session_report(
 
     if format == "csv":
         csv_buffer = service.generate_csv(sessions)
-        return StreamingResponse(csv_buffer, media_type="text/csv", headers={"Content-Disposition": "attachment; filename=all_sessions.csv"})
+        return StreamingResponse(
+            csv_buffer, media_type="text/csv", headers={"Content-Disposition": "attachment; filename=all_sessions.csv"}
+        )
     elif format == "pdf":
         pdf_buffer = service.generate_pdf(sessions, "All Care Sessions Report")
-        return StreamingResponse(pdf_buffer, media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=all_sessions.pdf"})
+        return StreamingResponse(
+            pdf_buffer,
+            media_type="application/pdf",
+            headers={"Content-Disposition": "attachment; filename=all_sessions.pdf"},
+        )
     else:
         raise HTTPException(status_code=400, detail="Invalid format")
 
@@ -172,10 +192,18 @@ async def download_individual_session_report(
 
     if format == "csv":
         csv_buffer = service.generate_csv(sessions)
-        return StreamingResponse(csv_buffer, media_type="text/csv", headers={"Content-Disposition": f"attachment; filename=session_{session_id}.csv"})
+        return StreamingResponse(
+            csv_buffer,
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename=session_{session_id}.csv"},
+        )
     elif format == "pdf":
         pdf_buffer = service.generate_pdf(sessions, f"Care Session Report - {session_id}")
-        return StreamingResponse(pdf_buffer, media_type="application/pdf", headers={"Content-Disposition": f"attachment; filename=session_{session_id}.pdf"})
+        return StreamingResponse(
+            pdf_buffer,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename=session_{session_id}.pdf"},
+        )
     else:
         raise HTTPException(status_code=400, detail="Invalid format")
 
@@ -218,10 +246,18 @@ async def download_caregiver_performance(
 
     if format == "csv":
         csv_buffer = service.generate_caregiver_csv(caregivers)
-        return StreamingResponse(csv_buffer, media_type="text/csv", headers={"Content-Disposition": "attachment; filename=caregiver_performance.csv"})
+        return StreamingResponse(
+            csv_buffer,
+            media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=caregiver_performance.csv"},
+        )
     elif format == "pdf":
         pdf_buffer = service.generate_caregiver_pdf(caregivers, "Caregiver Performance Report")
-        return StreamingResponse(pdf_buffer, media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=caregiver_performance.pdf"})
+        return StreamingResponse(
+            pdf_buffer,
+            media_type="application/pdf",
+            headers={"Content-Disposition": "attachment; filename=caregiver_performance.pdf"},
+        )
     else:
         raise HTTPException(status_code=400, detail="Invalid format")
 
@@ -241,10 +277,18 @@ async def download_caregiver_report(
 
     if format == "csv":
         csv_buffer = service.generate_caregiver_csv(caregivers)
-        return StreamingResponse(csv_buffer, media_type="text/csv", headers={"Content-Disposition": f"attachment; filename=caregiver_{caregiver_id}.csv"})
+        return StreamingResponse(
+            csv_buffer,
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename=caregiver_{caregiver_id}.csv"},
+        )
     elif format == "pdf":
         pdf_buffer = service.generate_caregiver_pdf(caregivers, f"Caregiver Report - {caregiver_id}")
-        return StreamingResponse(pdf_buffer, media_type="application/pdf", headers={"Content-Disposition": f"attachment; filename=caregiver_{caregiver_id}.pdf"})
+        return StreamingResponse(
+            pdf_buffer,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename=caregiver_{caregiver_id}.pdf"},
+        )
     else:
         raise HTTPException(status_code=400, detail="Invalid format")
 
@@ -298,14 +342,24 @@ async def download_patient_report(
 ):
     """Download patient session history report."""
     check_permission(jwt_payload, "care-session:report")
-    page = await service.get_patient_sessions(patient_id, limit=10000, offset=0, start_date=start_date, end_date=end_date)
+    page = await service.get_patient_sessions(
+        patient_id, limit=10000, offset=0, start_date=start_date, end_date=end_date
+    )
 
     if format == "csv":
         csv_buffer = service.generate_patient_sessions_csv(page.items)
-        return StreamingResponse(csv_buffer, media_type="text/csv", headers={"Content-Disposition": f"attachment; filename=patient_{patient_id}.csv"})
+        return StreamingResponse(
+            csv_buffer,
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename=patient_{patient_id}.csv"},
+        )
     elif format == "pdf":
         pdf_buffer = service.generate_patient_sessions_pdf(page.items, f"Patient Report - {patient_id}")
-        return StreamingResponse(pdf_buffer, media_type="application/pdf", headers={"Content-Disposition": f"attachment; filename=patient_{patient_id}.pdf"})
+        return StreamingResponse(
+            pdf_buffer,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename=patient_{patient_id}.pdf"},
+        )
     else:
         raise HTTPException(status_code=400, detail="Invalid format")
 
@@ -390,10 +444,18 @@ async def download_feedback_report(
 
     if format == "csv":
         csv_buffer = service.generate_feedback_csv(page.items)
-        return StreamingResponse(csv_buffer, media_type="text/csv", headers={"Content-Disposition": "attachment; filename=feedback_report.csv"})
+        return StreamingResponse(
+            csv_buffer,
+            media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=feedback_report.csv"},
+        )
     elif format == "pdf":
         pdf_buffer = service.generate_feedback_pdf(page.items, "Feedback Report")
-        return StreamingResponse(pdf_buffer, media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=feedback_report.pdf"})
+        return StreamingResponse(
+            pdf_buffer,
+            media_type="application/pdf",
+            headers={"Content-Disposition": "attachment; filename=feedback_report.pdf"},
+        )
     else:
         raise HTTPException(status_code=400, detail="Invalid format")
 
@@ -424,9 +486,17 @@ async def download_caregiver_feedback(
 
     if format == "csv":
         csv_buffer = service.generate_caregiver_feedback_csv(page.items)
-        return StreamingResponse(csv_buffer, media_type="text/csv", headers={"Content-Disposition": f"attachment; filename=caregiver_{caregiver_id}_feedback.csv"})
+        return StreamingResponse(
+            csv_buffer,
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename=caregiver_{caregiver_id}_feedback.csv"},
+        )
     elif format == "pdf":
         pdf_buffer = service.generate_caregiver_feedback_pdf(page.items, f"Caregiver Feedback - {caregiver_id}")
-        return StreamingResponse(pdf_buffer, media_type="application/pdf", headers={"Content-Disposition": f"attachment; filename=caregiver_{caregiver_id}_feedback.pdf"})
+        return StreamingResponse(
+            pdf_buffer,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename=caregiver_{caregiver_id}_feedback.pdf"},
+        )
     else:
         raise HTTPException(status_code=400, detail="Invalid format")

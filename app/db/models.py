@@ -11,16 +11,17 @@ class CareSession(Base):
     Care session tracking for caregiver check-ins/check-outs.
     Owned by care-session-service.
     """
+
     __tablename__ = "care_sessions"
-    __table_args__ = {'extend_existing': True}
-    
+    __table_args__ = {"extend_existing": True}
+
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     session_id = Column(String(50), unique=True, nullable=False, index=True)
     patient_id = Column(UUID(as_uuid=True), nullable=False, index=True)
     caregiver_id = Column(UUID(as_uuid=True), nullable=False, index=True)
     check_in_time = Column(DateTime, default=now_cet, nullable=False)
     check_out_time = Column(DateTime, nullable=True)
-    status = Column(String(50), default="in_progress", nullable=False, index=True) 
+    status = Column(String(50), default="in_progress", nullable=False, index=True)
     caregiver_notes = Column(Text, nullable=True)
     created_at = Column(DateTime, default=now_cet, nullable=False)
     updated_at = Column(DateTime, default=None, nullable=True)  # Updated explicitly in repository
@@ -32,9 +33,10 @@ class Organization(Base):
     Organizations table - in wailsalutem schema.
     Maps organization UUID to schema name.
     """
+
     __tablename__ = "organizations"
-    __table_args__ = {'schema': 'wailsalutem'}
-    
+    __table_args__ = {"schema": "wailsalutem"}
+
     id = Column(UUID(as_uuid=True), primary_key=True)
     schema_name = Column(String(100), nullable=False, unique=True)
 
@@ -44,9 +46,10 @@ class NFCTag(Base):
     NFC tags table - owned by another service.
     Defined here for read-only queries (validation during check-in).
     """
+
     __tablename__ = "nfc_tags"
-    __table_args__ = {'extend_existing': True}
-    
+    __table_args__ = {"extend_existing": True}
+
     id = Column(UUID(as_uuid=True), primary_key=True)
     tag_id = Column(String(255), unique=True, nullable=False, index=True)
     patient_id = Column(UUID(as_uuid=True), nullable=False, index=True)
@@ -58,9 +61,10 @@ class Patient(Base):
     Patients table - owned by another service.
     Defined here for read-only queries (getting patient details).
     """
+
     __tablename__ = "patients"
-    __table_args__ = {'extend_existing': True}
-    
+    __table_args__ = {"extend_existing": True}
+
     id = Column(UUID(as_uuid=True), primary_key=True)
     keycloak_user_id = Column(UUID(as_uuid=True), unique=True, nullable=False, index=True)
     first_name = Column(String(255), nullable=False)
@@ -83,9 +87,10 @@ class User(Base):
     Caregivers table - owned by another service.
     Local cache for reporting and validation.
     """
+
     __tablename__ = "users"
-    __table_args__ = {'extend_existing': True}
-    
+    __table_args__ = {"extend_existing": True}
+
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     keycloak_user_id = Column(UUID(as_uuid=True), unique=True, nullable=False, index=True)
     first_name = Column(String(255), nullable=False)
@@ -103,9 +108,10 @@ class Feedback(Base):
     Feedback table - owned by care-session-service.
     Stores patient feedback for care sessions.
     """
+
     __tablename__ = "feedback"
-    __table_args__ = {'extend_existing': True}
-    
+    __table_args__ = {"extend_existing": True}
+
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     care_session_id = Column(UUID(as_uuid=True), nullable=False, index=True)
     patient_id = Column(UUID(as_uuid=True), nullable=False, index=True)

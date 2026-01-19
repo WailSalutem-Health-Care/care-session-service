@@ -1,4 +1,5 @@
 """Shared repository base helpers."""
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 

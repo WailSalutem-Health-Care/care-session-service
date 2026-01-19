@@ -38,31 +38,19 @@ class OrganizationEventConsumer:
     def connect(self):
         credentials = pika.PlainCredentials(self.user, self.password)
         parameters = pika.ConnectionParameters(
-            host=self.host,
-            port=self.port,
-            credentials=credentials,
-            heartbeat=600,
-            blocked_connection_timeout=300
+            host=self.host, port=self.port, credentials=credentials, heartbeat=600, blocked_connection_timeout=300
         )
 
         self.connection = pika.BlockingConnection(parameters)
         self.channel = self.connection.channel()
 
-        self.channel.exchange_declare(
-            exchange=self.org_exchange,
-            exchange_type='topic',
-            durable=True
-        )
+        self.channel.exchange_declare(exchange=self.org_exchange, exchange_type="topic", durable=True)
 
-        queue_name = 'care_session_org_events'
+        queue_name = "care_session_org_events"
         self.channel.queue_declare(queue=queue_name, durable=True)
 
         for routing_key in self.routing_keys:
-            self.channel.queue_bind(
-                exchange=self.org_exchange,
-                queue=queue_name,
-                routing_key=routing_key
-            )
+            self.channel.queue_bind(exchange=self.org_exchange, queue=queue_name, routing_key=routing_key)
 
         return queue_name
 
@@ -179,7 +167,7 @@ class OrganizationEventConsumer:
                     return
                 new_status = self._get_value(event_data, "new_status", "newStatus")
                 changed_at = self._parse_datetime(self._get_value(event_data, "changed_at", "changedAt")) or now_cet()
-                is_active = (str(new_status).lower() == "active")
+                is_active = str(new_status).lower() == "active"
                 await repository.update_patient_status(UUID(patient_id), is_active, changed_at)
             elif event_type == "user.created":
                 payload = self._user_payload(event_data)
@@ -206,7 +194,7 @@ class OrganizationEventConsumer:
                     return
                 new_status = self._get_value(event_data, "new_status", "newStatus")
                 changed_at = self._parse_datetime(self._get_value(event_data, "changed_at", "changedAt")) or now_cet()
-                is_active = (str(new_status).lower() == "active")
+                is_active = str(new_status).lower() == "active"
                 await repository.update_user_status(UUID(user_id), is_active, changed_at)
             elif event_type == "user.role_changed":
                 user_id = self._get_value(event_data, "user_id", "userId")
@@ -217,7 +205,11 @@ class OrganizationEventConsumer:
                 old_role = self._get_value(event_data, "old_role", "oldRole")
                 changed_at = self._parse_datetime(self._get_value(event_data, "changed_at", "changedAt")) or now_cet()
 
-                if old_role and str(old_role).upper() == "CAREGIVER" and (not new_role or str(new_role).upper() != "CAREGIVER"):
+                if (
+                    old_role
+                    and str(old_role).upper() == "CAREGIVER"
+                    and (not new_role or str(new_role).upper() != "CAREGIVER")
+                ):
                     await repository.update_user_role(UUID(user_id), new_role, False, changed_at)
                 elif new_role and str(new_role).upper() == "CAREGIVER":
                     await repository.update_user_role(UUID(user_id), new_role, True, changed_at)
@@ -244,18 +236,15 @@ class OrganizationEventConsumer:
         try:
             queue_name = self.connect()
 
-            logger.info("="*60)
+            logger.info("=" * 60)
             logger.info("Care Session Service - Organization Event Consumer")
             logger.info(f"Connected to RabbitMQ: {self.host}:{self.port}")
             logger.info(f"Listening to queue: {queue_name}")
             logger.info(f"Routing keys: {', '.join(self.routing_keys)}")
-            logger.info("="*60)
+            logger.info("=" * 60)
 
             self.channel.basic_qos(prefetch_count=1)
-            self.channel.basic_consume(
-                queue=queue_name,
-                on_message_callback=self.callback
-            )
+            self.channel.basic_consume(queue=queue_name, on_message_callback=self.callback)
 
             self.channel.start_consuming()
 

@@ -1,4 +1,5 @@
 """Authentication Middleware"""
+
 import os
 from uuid import UUID
 from jose import JWTError
@@ -14,80 +15,75 @@ from app.auth.permissions_manager import PermissionsManager
 from app.db.postgres import get_db
 from app.db.models import Organization, User, Patient
 
-
 # Initialize components
 security = HTTPBearer()
 jwt_verifier = JWTVerifier(
     keycloak_url=os.getenv("KEYCLOAK_BASE_URL"),
     # keycloak_url=keycloak_base,
     realm=os.getenv("KEYCLOAK_REALM"),
-    algorithm=os.getenv("JWT_ALGORITHM", "RS256")
+    algorithm=os.getenv("JWT_ALGORITHM", "RS256"),
 )
 permissions_manager = PermissionsManager()
 
 
-async def _lookup_internal_user_id(
-    auth_user_id: str,
-    tenant_schema: str,
-    db: AsyncSession
-) -> Optional[UUID]:
+async def _lookup_internal_user_id(auth_user_id: str, tenant_schema: str, db: AsyncSession) -> Optional[UUID]:
     """
     Look up internal user ID from authenticated user ID.
-    
+
     Checks both Patient and User tables since different user types are stored in different tables.
-        
+
     Returns:
         User/Patient ID if found, None otherwise
     """
     try:
         await db.execute(text(f'SET search_path TO "{tenant_schema}"'))
-        
+
         # First try to find in Patient table
         stmt = select(Patient.id).where(Patient.keycloak_user_id == UUID(auth_user_id))
         result = await db.execute(stmt)
         patient_id = result.scalar_one_or_none()
         if patient_id:
             return patient_id
-        
+
         # If not found in Patient table, try User table (for caregivers, admins, etc.)
         stmt = select(User.id).where(User.keycloak_user_id == UUID(auth_user_id))
         result = await db.execute(stmt)
         user_id = result.scalar_one_or_none()
         if user_id:
             return user_id
-        
+
         return None
     except Exception:
         return None
 
 
 async def verify_token(
-    credentials = Depends(security),
+    credentials=Depends(security),
     x_organization_id: Optional[str] = Header(None, alias="X-Organization-ID"),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ) -> JWTPayload:
     """
     Verify JWT token from Keycloak and extract payload.
-    
+
     Expected JWT claims:
     - sub: authenticated user ID (e.g., Keycloak user ID)
     - organizationID: organizationID (or X-Organization-ID header for SUPER_ADMIN)
     - realm_access.roles: list of role names
     """
     token = credentials.credentials
-    
+
     try:
         # Verify and decode token
         payload = jwt_verifier.verify_and_decode(token)
-        
+
         # Extract roles from realm_access
         roles = []
         if "realm_access" in payload and "roles" in payload["realm_access"]:
             roles = payload["realm_access"]["roles"]
-        
+
         # Check if user is SUPER_ADMIN
         is_super_admin = "SUPER_ADMIN" in roles
-        
+
         # Get organizationId from token or header
         # SUPER_ADMIN can provide org via X-Organization-ID header
         org_id = payload.get("organizationID", "")
@@ -95,36 +91,34 @@ async def verify_token(
             org_id = x_organization_id
         elif not org_id:
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token: missing organizationID"
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token: missing organizationID"
             )
-        
+
         # Map roles to permissions
         permissions = permissions_manager.get_permissions_for_roles(roles)
-        
+
         # Get tenant schema from token
         tenant_schema = payload.get("orgSchemaName") or payload.get("schemaName") or payload.get("schema_name")
-        
+
         if not tenant_schema:
             # For SUPER_ADMIN with X-Organization-ID header, query the schema name from database
             if is_super_admin and x_organization_id:
                 stmt = select(Organization.schema_name).where(Organization.id == org_id)
                 result = await db.execute(stmt)
                 tenant_schema = result.scalar_one_or_none()
-                
+
                 if not tenant_schema:
                     raise HTTPException(
-                        status_code=status.HTTP_404_NOT_FOUND,
-                        detail=f"Organization not found: {org_id}"
+                        status_code=status.HTTP_404_NOT_FOUND, detail=f"Organization not found: {org_id}"
                     )
             else:
                 # Fallback: construct from org_id (for backward compatibility)
                 tenant_schema = org_id if org_id.startswith("org_") else f"org_{org_id}"
-        
+
         # Look up internal user ID from authenticated user ID
         auth_user_id = payload["sub"]
         internal_user_id = await _lookup_internal_user_id(auth_user_id, tenant_schema, db)
-        
+
         return JWTPayload(
             sub=auth_user_id,
             internal_user_id=internal_user_id,
@@ -133,34 +127,29 @@ async def verify_token(
             roles=roles,
             permissions=permissions,
             iat=payload.get("iat"),
-            exp=payload.get("exp")
+            exp=payload.get("exp"),
         )
-    
+
     except JWTError as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid token: {str(e)}"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=f"Invalid token: {str(e)}")
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Token verification failed: {str(e)}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Token verification failed: {str(e)}"
         )
 
 
 def check_permission(jwt_payload: JWTPayload, required_permission: str):
     """
     Check if user has required permission.
-    
+
     Args:
         jwt_payload: JWT payload containing user permissions
         required_permission: Permission string to check
-        
+
     Raises:
         HTTPException: If user lacks required permission
     """
     if required_permission not in jwt_payload.permissions:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Missing required permission: {required_permission}"
+            status_code=status.HTTP_403_FORBIDDEN, detail=f"Missing required permission: {required_permission}"
         )

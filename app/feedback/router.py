@@ -1,4 +1,5 @@
 """Feedback REST API endpoints"""
+
 from uuid import UUID
 from typing import Optional
 from datetime import date, datetime, timedelta
@@ -8,9 +9,9 @@ from app.db.postgres import get_db
 from app.feedback.service import FeedbackService
 from fastapi import Response
 from app.feedback.schemas import (
-    CreateFeedbackRequest, 
-    FeedbackResponse, 
-    FeedbackListResponse, 
+    CreateFeedbackRequest,
+    FeedbackResponse,
+    FeedbackListResponse,
     FeedbackMetrics,
     DailyAverageResponse,
     DailyAverageListResponse,
@@ -25,7 +26,6 @@ from app.feedback.satisfaction import get_satisfaction_level, compute_metrics
 from app.auth.middleware import JWTPayload, verify_token, check_permission
 from app.db.models import Patient, User
 from app.utils.timezone import convert_to_cet
-
 
 router = APIRouter(
     prefix="/feedback",
@@ -61,25 +61,25 @@ async def create_feedback(
 ):
     """
     Create feedback for a care session.
-    
+
     Business rules:
     - Only patients can create feedback
     - One feedback per session
     - Rating: 1=Dissatisfied, 2=Neutral, 3=Satisfied
-    
+
     Required permission: feedback:create (PATIENT role)
     """
     check_permission(jwt_payload, "feedback:create")
-    
+
     service = FeedbackService(db, jwt_payload.tenant_schema)
-    
+
     feedback = await service.create_feedback(
         care_session_id=request.care_session_id,
         patient_id=jwt_payload.internal_user_id,
         rating=request.rating,
         patient_feedback=request.patient_feedback,
     )
-    
+
     return to_response(feedback)
 
 
@@ -91,14 +91,14 @@ async def get_feedback(
 ):
     """
     Get feedback by ID.
-    
+
     Required permission: feedback:read (PATIENT role)
     """
     check_permission(jwt_payload, "feedback:read")
-    
+
     service = FeedbackService(db, jwt_payload.tenant_schema)
     feedback = await service.get_feedback_by_id(feedback_id=feedback_id)
-    
+
     return to_response(feedback)
 
 
@@ -112,23 +112,23 @@ async def list_feedbacks(
 ):
     """
     List all feedbacks with optional filtering.
-    
+
     """
     check_permission(jwt_payload, "feedback:read")
-    
+
     service = FeedbackService(db, jwt_payload.tenant_schema)
     feedbacks, total = await service.list_feedbacks(
         patient_id=patient_id,
         page=page,
         page_size=page_size,
     )
-    
+
     # Compute satisfaction metrics
     metrics_data = compute_metrics(feedbacks)
     metrics = FeedbackMetrics(**metrics_data)
-    
+
     total_pages = (total + page_size - 1) // page_size
-    
+
     return FeedbackListResponse(
         feedbacks=[to_response(feedback) for feedback in feedbacks],
         count=len(feedbacks),
@@ -149,33 +149,33 @@ async def get_daily_metrics(
 ):
     """
     Get daily average feedback metrics for a date range.
-    
+
     Returns:
     - Daily averages by date
     - Overall metrics for the entire period
     - Satisfaction distribution and indices
-    
+
     Required permission: feedback:read
     """
     check_permission(jwt_payload, "feedback:read")
-    
+
     service = FeedbackService(db, jwt_payload.tenant_schema)
     daily_averages, all_feedbacks = await service.get_daily_averages(start_date, end_date)
-    
+
     # Build daily responses
     daily_responses = [
         DailyAverageResponse(
-            date=day['date'].isoformat(),
-            average_rating=round(day['average_rating'], 2),
-            total_feedbacks=day['total_feedbacks'],
-            satisfaction_index=calculate_satisfaction_index(day['average_rating']),
+            date=day["date"].isoformat(),
+            average_rating=round(day["average_rating"], 2),
+            total_feedbacks=day["total_feedbacks"],
+            satisfaction_index=calculate_satisfaction_index(day["average_rating"]),
         )
         for day in daily_averages
     ]
-    
+
     # Compute overall metrics
     overall_metrics = FeedbackMetrics(**compute_metrics(all_feedbacks))
-    
+
     return DailyAverageListResponse(
         daily_averages=daily_responses,
         count=len(daily_responses),
@@ -192,19 +192,19 @@ async def get_caregiver_weekly_metrics(
 ):
     """
     Get caregiver's weekly feedback metrics.
-    
+
     Week runs Monday-Sunday. Returns metrics for the 7-day period.
     Required permission: feedback:read (Admin roles)
     """
     check_permission(jwt_payload, "feedback:read")
-    
+
     week_end = week_start + timedelta(days=6)
     service = FeedbackService(db, jwt_payload.tenant_schema)
     feedbacks = await service.get_caregiver_weekly_metrics(caregiver_id, week_start, week_end)
-    
+
     # Compute metrics (returns empty metrics if no feedbacks)
     metrics_data = compute_metrics(feedbacks)
-    
+
     return CaregiverWeeklyMetrics(
         caregiver_id=caregiver_id,
         week_start=week_start.isoformat(),
@@ -224,20 +224,20 @@ async def get_patient_metrics(
 
     """
     check_permission(jwt_payload, "feedback:read")
-    
+
     service = FeedbackService(db, jwt_payload.tenant_schema)
-    
+
     # Get average rating
     avg_rating = await service.get_patient_average_rating(patient_id)
-    
+
     # Get total count
     _, total_feedbacks = await service.list_feedbacks(patient_id=patient_id, page=1, page_size=1)
-    
+
     # Calculate satisfaction index
     satisfaction_index = None
     if avg_rating is not None:
         satisfaction_index = calculate_satisfaction_index(avg_rating)
-    
+
     return PatientAverageRatingResponse(
         patient_id=patient_id,
         average_rating=round(avg_rating, 2) if avg_rating is not None else None,
@@ -254,32 +254,33 @@ async def get_top_caregivers_weekly(
 ):
     """
     Get top 3 caregivers of the week based on average feedback rating.
-    
+
     """
     check_permission(jwt_payload, "feedback:read")
-    
+
     week_end = week_start + timedelta(days=6)
     service = FeedbackService(db, jwt_payload.tenant_schema)
-    
+
     top_caregivers_data = await service.get_top_caregivers_of_week(week_start, week_end)
-    
+
     # Build response with rankings
     top_caregivers = [
         TopCaregiverItem(
-            caregiver_id=caregiver['caregiver_id'],
-            average_rating=round(caregiver['average_rating'], 2),
-            satisfaction_index=calculate_satisfaction_index(caregiver['average_rating']),
-            total_feedbacks=caregiver['total_feedbacks'],
+            caregiver_id=caregiver["caregiver_id"],
+            average_rating=round(caregiver["average_rating"], 2),
+            satisfaction_index=calculate_satisfaction_index(caregiver["average_rating"]),
+            total_feedbacks=caregiver["total_feedbacks"],
             rank=idx + 1,
         )
         for idx, caregiver in enumerate(top_caregivers_data)
     ]
-    
+
     return TopCaregiversResponse(
         week_start=week_start.isoformat(),
         week_end=week_end.isoformat(),
         top_caregivers=top_caregivers,
     )
+
 
 @router.get("/metrics/caregivers/{caregiver_id:uuid}/period", response_model=CaregiverAverageRatingResponse)
 async def get_caregiver_metrics_period(
@@ -292,9 +293,9 @@ async def get_caregiver_metrics_period(
 ):
     """Get caregiver's average rating for a period (daily, weekly, monthly)."""
     check_permission(jwt_payload, "feedback:read")
-    
+
     today = date.today()
-    
+
     # Auto-calculate date range if not provided
     if (start_date is None or end_date is None) and period:
         if period == "daily":
@@ -316,14 +317,14 @@ async def get_caregiver_metrics_period(
         weekday = today.weekday()
         start_date = today - timedelta(days=weekday)
         end_date = start_date + timedelta(days=6)
-    
+
     service = FeedbackService(db, jwt_payload.tenant_schema)
     avg_rating, total = await service.get_caregiver_average_rating(
         caregiver_id=caregiver_id,
         start_date=start_date,
         end_date=end_date,
     )
-    
+
     return CaregiverAverageRatingResponse(
         caregiver_id=caregiver_id,
         period=period,
@@ -341,13 +342,11 @@ async def delete_feedback(
     jwt_payload: JWTPayload = Depends(verify_token),
 ):
     """
-    Delete a feedback. 
+    Delete a feedback.
     """
     check_permission(jwt_payload, "feedback:delete")
 
     service = FeedbackService(db, jwt_payload.tenant_schema)
-    
+
     await service.delete_feedback(feedback_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
-
-

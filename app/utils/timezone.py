@@ -1,11 +1,12 @@
 """Timezone utilities for CET (Central European Time) operations"""
+
 from datetime import datetime
 from typing import Optional
 
 import pytz
 
 # European timezone (handles CET/CEST automatically)
-EUROPE_TZ = pytz.timezone('Europe/Paris')
+EUROPE_TZ = pytz.timezone("Europe/Paris")
 
 
 def now_cet() -> datetime:
