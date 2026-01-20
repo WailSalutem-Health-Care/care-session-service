@@ -112,7 +112,6 @@ def init_telemetry() -> bool:
 
 def shutdown_telemetry():
     """Gracefully shutdown telemetry providers and flush pending data."""
-    global _tracer_provider, _meter_provider
 
     try:
         if _tracer_provider:
