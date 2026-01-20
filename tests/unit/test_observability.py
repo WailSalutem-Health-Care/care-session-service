@@ -1,7 +1,7 @@
 """Unit tests for observability module."""
 
 import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import patch
 from app.observability.metrics import (
     record_care_session_operation,
     record_operation_duration,
@@ -18,7 +18,7 @@ class TestCareSessionMetrics:
         """Test context manager records success metrics."""
         with patch("app.observability.metrics.record_care_session_operation") as mock_record_op:
             with patch("app.observability.metrics.record_operation_duration") as mock_record_duration:
-                with CareSessionMetrics("create", tenant_id="test-tenant") as metrics:
+                with CareSessionMetrics("create", tenant_id="test-tenant"):
                     # Simulate successful operation
                     pass
 
@@ -35,7 +35,7 @@ class TestCareSessionMetrics:
         with patch("app.observability.metrics.record_care_session_operation") as mock_record_op:
             with patch("app.observability.metrics.record_operation_duration") as mock_record_duration:
                 with pytest.raises(ValueError):
-                    with CareSessionMetrics("update", tenant_id="test-tenant") as metrics:
+                    with CareSessionMetrics("update", tenant_id="test-tenant"):
                         raise ValueError("Test error")
 
                 # Verify failure metrics were recorded
@@ -47,8 +47,8 @@ class TestCareSessionMetrics:
     def test_context_manager_without_tenant(self):
         """Test context manager works without tenant_id."""
         with patch("app.observability.metrics.record_care_session_operation") as mock_record_op:
-            with patch("app.observability.metrics.record_operation_duration") as mock_record_duration:
-                with CareSessionMetrics("complete") as metrics:
+            with patch("app.observability.metrics.record_operation_duration"):
+                with CareSessionMetrics("complete"):
                     pass
 
                 # Verify metrics were recorded without tenant_id
@@ -57,9 +57,9 @@ class TestCareSessionMetrics:
     def test_set_status_manually(self):
         """Test manually setting operation status."""
         with patch("app.observability.metrics.record_care_session_operation") as mock_record_op:
-            with patch("app.observability.metrics.record_operation_duration") as mock_record_duration:
-                with CareSessionMetrics("delete") as metrics:
-                    metrics.set_status("failure")
+            with patch("app.observability.metrics.record_operation_duration"):
+                with CareSessionMetrics("delete") as ctx:
+                    ctx.set_status("failure")
 
                 # Verify failure status was recorded
                 args = mock_record_op.call_args[0]
@@ -72,8 +72,8 @@ class TestTrackCareSessionOperation:
     def test_track_operation_success(self):
         """Test tracking successful operation."""
         with patch("app.observability.metrics.record_care_session_operation") as mock_record_op:
-            with patch("app.observability.metrics.record_operation_duration") as mock_record_duration:
-                with track_care_session_operation("create", tenant_id="test") as metrics:
+            with patch("app.observability.metrics.record_operation_duration"):
+                with track_care_session_operation("create", tenant_id="test"):
                     result = "success"
 
                 assert result == "success"
@@ -82,9 +82,9 @@ class TestTrackCareSessionOperation:
     def test_track_operation_failure(self):
         """Test tracking failed operation."""
         with patch("app.observability.metrics.record_care_session_operation") as mock_record_op:
-            with patch("app.observability.metrics.record_operation_duration") as mock_record_duration:
+            with patch("app.observability.metrics.record_operation_duration"):
                 with pytest.raises(RuntimeError):
-                    with track_care_session_operation("cancel") as metrics:
+                    with track_care_session_operation("cancel"):
                         raise RuntimeError("Operation failed")
 
                 # Verify failure was recorded
