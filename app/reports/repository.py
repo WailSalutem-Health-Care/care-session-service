@@ -205,15 +205,13 @@ class ReportsRepository(BaseRepository):
             clauses.append("f.created_at <= :end_date")
             params["end_date"] = end_date
 
-        stmt = text(
-            f"""
+        stmt = text(f"""
             SELECT cs.caregiver_id, AVG(f.rating)::float AS avg_rating
             FROM feedback f
             JOIN care_sessions cs ON cs.id = f.care_session_id
             WHERE {' AND '.join(clauses)}
             GROUP BY cs.caregiver_id
-            """
-        )
+            """)
         result = await self.db.execute(stmt, params)
         return {row.caregiver_id: float(row.avg_rating) for row in result.all()}
 
@@ -233,27 +231,23 @@ class ReportsRepository(BaseRepository):
     async def get_patient_summary(self, patient_id: UUID) -> Dict[str, object]:
         """Aggregate patient summary metrics."""
         await self._set_search_path()
-        summary_stmt = text(
-            """
+        summary_stmt = text("""
             SELECT
                 COUNT(cs.id) AS total_sessions,
                 COUNT(DISTINCT cs.caregiver_id) AS distinct_caregivers
             FROM care_sessions cs
             WHERE cs.patient_id = :patient_id
               AND cs.deleted_at IS NULL
-            """
-        )
+            """)
         summary_result = await self.db.execute(summary_stmt, {"patient_id": patient_id})
         summary = summary_result.mappings().first() or {}
 
-        rating_stmt = text(
-            """
+        rating_stmt = text("""
             SELECT AVG(f.rating)::float AS avg_rating
             FROM feedback f
             WHERE f.patient_id = :patient_id
               AND f.deleted_at IS NULL
-            """
-        )
+            """)
         rating_result = await self.db.execute(rating_stmt, {"patient_id": patient_id})
         avg_rating = rating_result.scalar()
 
@@ -282,18 +276,15 @@ class ReportsRepository(BaseRepository):
             where_clauses.append("cs.check_in_time <= :end_date")
             params["end_date"] = end_date
 
-        count_stmt = text(
-            f"""
+        count_stmt = text(f"""
             SELECT COUNT(*) AS total
             FROM care_sessions cs
             WHERE {' AND '.join(where_clauses)}
-            """
-        )
+            """)
         total_result = await self.db.execute(count_stmt, params)
         total = int(total_result.scalar() or 0)
 
-        data_stmt = text(
-            f"""
+        data_stmt = text(f"""
             SELECT
                 cs.id,
                 cs.caregiver_id,
@@ -309,8 +300,7 @@ class ReportsRepository(BaseRepository):
             WHERE {' AND '.join(where_clauses)}
             ORDER BY cs.check_in_time DESC, cs.id DESC
             LIMIT :limit OFFSET :offset
-            """
-        )
+            """)
         result = await self.db.execute(data_stmt, params)
         rows = [dict(row._mapping) for row in result]
         return rows, total
@@ -350,8 +340,7 @@ class ReportsRepository(BaseRepository):
             params["cursor_time"] = cursor_time
             params["cursor_id"] = cursor_id
 
-        stmt = text(
-            f"""
+        stmt = text(f"""
             SELECT
                 f.id,
                 f.care_session_id,
@@ -365,8 +354,7 @@ class ReportsRepository(BaseRepository):
             WHERE {' AND '.join(where_clauses)}
             ORDER BY f.created_at DESC, f.id DESC
             LIMIT :limit
-            """
-        )
+            """)
         result = await self.db.execute(stmt, params)
         return [dict(row._mapping) for row in result]
 
@@ -386,16 +374,14 @@ class ReportsRepository(BaseRepository):
             where_clauses.append("f.created_at <= :end_date")
             params["end_date"] = end_date
 
-        stmt = text(
-            f"""
+        stmt = text(f"""
             SELECT
                 COUNT(*)::int AS total_feedback,
                 AVG(f.rating)::float AS avg_rating,
                 SUM(CASE WHEN f.rating >= 4 THEN 1 ELSE 0 END)::int AS positive_feedback
             FROM feedback f
             WHERE {' AND '.join(where_clauses)}
-            """
-        )
+            """)
         result = await self.db.execute(stmt, params)
         row = result.mappings().first() or {}
         return {
@@ -412,21 +398,18 @@ class ReportsRepository(BaseRepository):
     ) -> Tuple[List[Dict[str, object]], int]:
         """List caregiver feedback items for reports."""
         await self._set_search_path()
-        count_stmt = text(
-            """
+        count_stmt = text("""
             SELECT COUNT(*) AS total
             FROM feedback f
             JOIN care_sessions cs ON cs.id = f.care_session_id
             WHERE cs.caregiver_id = :caregiver_id
               AND cs.deleted_at IS NULL
               AND f.deleted_at IS NULL
-            """
-        )
+            """)
         total_result = await self.db.execute(count_stmt, {"caregiver_id": caregiver_id})
         total = int(total_result.scalar() or 0)
 
-        data_stmt = text(
-            """
+        data_stmt = text("""
             SELECT
                 f.id,
                 f.care_session_id,
@@ -442,8 +425,7 @@ class ReportsRepository(BaseRepository):
               AND f.deleted_at IS NULL
             ORDER BY f.created_at DESC
             LIMIT :limit OFFSET :offset
-            """
-        )
+            """)
         result = await self.db.execute(
             data_stmt,
             {"caregiver_id": caregiver_id, "limit": limit, "offset": offset},
