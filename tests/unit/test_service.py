@@ -8,10 +8,9 @@ from app.care_sessions.exceptions import DuplicateActiveSessionException
 async def test_create_session_success(fake_db, dummy_care_session):
     svc = CareSessionService(fake_db, "test_schema")
 
-    # Mock validator to return an object with patient_id
+    # Mock validator to return patient_id from NFC cache
     svc.validator = MagicMock()
-    svc.validator.validate_and_get_nfc_tag = AsyncMock()
-    svc.validator.validate_and_get_nfc_tag.return_value = MagicMock(patient_id=dummy_care_session.patient_id)
+    svc.validator.get_patient_id_from_nfc_event = AsyncMock(return_value=dummy_care_session.patient_id)
 
     # Mock repository
     svc.repository = MagicMock()
@@ -29,8 +28,7 @@ async def test_create_session_duplicate_raises(fake_db, dummy_care_session):
     svc = CareSessionService(fake_db, "test_schema")
 
     svc.validator = MagicMock()
-    svc.validator.validate_and_get_nfc_tag = AsyncMock()
-    svc.validator.validate_and_get_nfc_tag.return_value = MagicMock(patient_id=dummy_care_session.patient_id)
+    svc.validator.get_patient_id_from_nfc_event = AsyncMock(return_value=dummy_care_session.patient_id)
 
     svc.repository = MagicMock()
     # Simulate an existing active session
