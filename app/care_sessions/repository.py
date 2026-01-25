@@ -48,9 +48,25 @@ class CareSessionRepository(BaseRepository):
 
             session.session_id = f"CS-{int(val):04d}"
 
+        import logging
+
+        logger = logging.getLogger(__name__)
+
         self.db.add(session)
+        logger.debug(f"Session added to DB, about to commit: session_id={session.session_id}")
         await self.db.commit()
+        logger.debug(f"Session committed, about to refresh")
+
+        # Re-set search path after commit (transaction might reset it)
+        await self._set_search_path()
+
         await self.db.refresh(session)
+        logger.debug(
+            f"Session refreshed: id={session.id}, session_id={session.session_id}, check_in_time={session.check_in_time}"
+        )
+        logger.debug(
+            f"Session check_in_time type: {type(session.check_in_time)}, tzinfo: {getattr(session.check_in_time, 'tzinfo', 'N/A')}"
+        )
         return session
 
     async def get_by_id(self, id: UUID) -> Optional[CareSession]:
@@ -74,6 +90,10 @@ class CareSessionRepository(BaseRepository):
         await self._set_search_path()
         session.updated_at = now_cet()
         await self.db.commit()
+
+        # Re-set search path after commit (transaction might reset it)
+        await self._set_search_path()
+
         await self.db.refresh(session)
         return session
 

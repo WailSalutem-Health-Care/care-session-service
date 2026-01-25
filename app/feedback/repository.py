@@ -20,6 +20,10 @@ class FeedbackRepository(BaseRepository):
         await self._set_search_path()
         self.db.add(feedback)
         await self.db.commit()
+
+        # Re-set search path after commit (transaction might reset it)
+        await self._set_search_path()
+
         await self.db.refresh(feedback)
         return feedback
 

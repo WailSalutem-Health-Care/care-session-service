@@ -24,18 +24,35 @@ router = APIRouter(
 
 def to_response(session: CareSession) -> CareSessionResponse:
     """Convert CareSession model to response schema."""
-    return CareSessionResponse(
-        session_id=session.session_id,
-        id=session.id,
-        patient_id=session.patient_id,
-        caregiver_id=session.caregiver_id,
-        check_in_time=convert_to_cet(session.check_in_time),
-        check_out_time=convert_to_cet(session.check_out_time),
-        status=session.status,
-        caregiver_notes=session.caregiver_notes,
-        created_at=convert_to_cet(session.created_at),
-        updated_at=convert_to_cet(session.updated_at),
-    )
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+    try:
+        logger.debug(f"Converting session to response: id={session.id}, session_id={session.session_id}")
+        logger.debug(f"Session times: check_in={session.check_in_time}, check_out={session.check_out_time}")
+        logger.debug(f"Session timestamps: created_at={session.created_at}, updated_at={session.updated_at}")
+
+        response = CareSessionResponse(
+            session_id=session.session_id,
+            id=session.id,
+            patient_id=session.patient_id,
+            caregiver_id=session.caregiver_id,
+            check_in_time=convert_to_cet(session.check_in_time),
+            check_out_time=convert_to_cet(session.check_out_time),
+            status=session.status,
+            caregiver_notes=session.caregiver_notes,
+            created_at=convert_to_cet(session.created_at),
+            updated_at=convert_to_cet(session.updated_at),
+        )
+        logger.debug(f"Response created successfully")
+        return response
+    except Exception as e:
+        logger.error(f"Error in to_response: {e}", exc_info=True)
+        logger.error(
+            f"Session data: id={getattr(session, 'id', None)}, session_id={getattr(session, 'session_id', None)}"
+        )
+        raise
 
 
 @router.post("/create", response_model=CareSessionResponse, status_code=status.HTTP_201_CREATED)
@@ -55,16 +72,27 @@ async def create_care_session(
 
     Required permission: care-session:create (CAREGIVER role)
     """
+    import logging
+
+    logger = logging.getLogger(__name__)
+
     check_permission(jwt_payload, "care-session:create")
 
     service = CareSessionService(db, jwt_payload.tenant_schema)
-    session = await service.create_session(
-        tag_id=request.tag_id,
-        caregiver_id=jwt_payload.internal_user_id,  # From Keycloak JWT
-        session_id=request.session_id,
-    )
+    try:
+        session = await service.create_session(
+            tag_id=request.tag_id,
+            caregiver_id=jwt_payload.internal_user_id,  # From Keycloak JWT
+            session_id=request.session_id,
+        )
+        logger.info(f"Session created successfully: {session.id}, session_id={session.session_id}")
 
-    return to_response(session)
+        response = to_response(session)
+        logger.info(f"Response created successfully for session: {session.id}")
+        return response
+    except Exception as e:
+        logger.error(f"Error creating care session: {e}", exc_info=True)
+        raise
 
 
 @router.get("/{session_id}", response_model=CareSessionResponse)
