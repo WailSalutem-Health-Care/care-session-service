@@ -45,7 +45,7 @@ def to_response(session: CareSession) -> CareSessionResponse:
             created_at=convert_to_cet(session.created_at),
             updated_at=convert_to_cet(session.updated_at),
         )
-        logger.debug(f"Response created successfully")
+        logger.debug("Response created successfully")
         return response
     except Exception as e:
         logger.error(f"Error in to_response: {e}", exc_info=True)

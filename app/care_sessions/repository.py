@@ -55,7 +55,7 @@ class CareSessionRepository(BaseRepository):
         self.db.add(session)
         logger.debug(f"Session added to DB, about to commit: session_id={session.session_id}")
         await self.db.commit()
-        logger.debug(f"Session committed, about to refresh")
+        logger.debug("Session committed, about to refresh")
 
         # Re-set search path after commit (transaction might reset it)
         await self._set_search_path()
