@@ -47,7 +47,7 @@ class CareSessionService:
         """
         with track_care_session_operation("create", tenant_id=self.tenant_schema):
             # Get patient_id from NFC event cache (populated by RabbitMQ consumer)
-            patient_id = self.validator.get_patient_id_from_nfc_event(tag_id)
+            patient_id = await self.validator.get_patient_id_from_nfc_event(tag_id)
 
             # Check for duplicate active sessions
             existing_session = await self.repository.get_active_by_patient(patient_id)
