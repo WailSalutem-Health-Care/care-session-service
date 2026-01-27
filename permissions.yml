@@ -33,7 +33,9 @@ roles:
   MUNICIPALITY:
     - care-session:read
     - care-session:report
+    - feedback:read
 
   INSURER:
     - care-session:read
     - care-session:report
+    - feedback:read
