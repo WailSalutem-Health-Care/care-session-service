@@ -93,7 +93,7 @@ jobs:
             echo "k8s_changed=false" >> $GITHUB_OUTPUT
           fi
 
-          if echo "$CHANGED" | grep -qE '^(app/|Dockerfile|requirements)'; then
+          if echo "$CHANGED" | grep -qE '^(app/|Dockerfile|requirements|permissions\.yml)'; then
             echo "code_changed=true" >> $GITHUB_OUTPUT
           else
             echo "code_changed=false" >> $GITHUB_OUTPUT
