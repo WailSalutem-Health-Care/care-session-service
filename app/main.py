@@ -1,4 +1,15 @@
-"""Care Session Service - FastAPI Application."""
+"""Care Session Service - FastAPI Application.
+"""
+# ============================================================================
+# DEVELOPER
+# ============================================================================
+# Project: Care Session Service
+# Lead Developer: Muhammad Faizan
+# Developers: Roozbeh Kouchaki, Fatemehalsadat Sabaghjafari, Dipika Bhandari
+# Organization: WailSalutem Health Care
+# Platform: FastAPI Microservice
+# Date: 2026
+# ============================================================================
 
 from dotenv import load_dotenv
 import os

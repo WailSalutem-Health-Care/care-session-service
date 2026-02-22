@@ -1,4 +1,11 @@
-"""OpenTelemetry Observability Module for Care Session Service."""
+"""OpenTelemetry Observability Module for Care Session Service.
+
+Developers:
+- Muhammad Faizan
+- Roozbeh Kouchaki
+- Fatemehalsadat Sabaghjafari
+- Dipika Bhandari
+"""
 
 from app.observability.telemetry import init_telemetry, shutdown_telemetry
 from app.observability.middleware import TelemetryMiddleware
